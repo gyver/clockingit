@@ -946,7 +946,7 @@ class TasksController < ApplicationController
       tmp[v] = session[v]
     end
 
-    #do_filter
+    setup_task_filters
 
     session[:filter_project_short] = session[:filter_project]
     session[:filter_customer_short] = session[:filter_customer]
