@@ -939,6 +939,55 @@ class TasksController < ApplicationController
     @task = Task.find( params[:id], :conditions => ["company_id = ?", current_user.company_id] )
   end
 
+  def do_filter
+
+    f = params[:filter]
+
+    if f.nil? || f.empty? || f == "0"
+      session[:filter_customer] = "0"
+      session[:filter_milestone] = "0"
+      session[:filter_project] = "0"
+    elsif f[0..0] == 'c'
+      session[:filter_customer] = f[1..-1]
+      session[:filter_milestone] = "0"
+      session[:filter_project] = "0"
+    elsif f[0..0] == 'p'
+      session[:filter_customer] = "0"
+      session[:filter_milestone] = "0"
+      session[:filter_project] = f[1..-1]
+    elsif f[0..0] == 'm'
+      session[:filter_customer] = "0"
+      session[:filter_milestone] = f[1..-1]
+      session[:filter_project] = "0"
+    elsif f[0..0] == 'u'
+      session[:filter_customer] = "0"
+      session[:filter_milestone] = "-1"
+      session[:filter_project] = f[1..-1]
+    end
+
+    filter_names =  [:filter_user, :filter_hidden, :filter_status, :group_by, :hide_deferred, :hide_dependencies, :sort, :filter_type, :filter_severity, :filter_priority, :colors, :icons ]
+    filter_names.each do |filter|
+      session[filter] = params[filter]
+    end
+
+    # set any filters on custom properties
+    current_user.company.properties.each do |prop|
+      filter = prop.filter_name
+      session[filter] = params[filter]
+    end
+
+    current_user.company.properties.each do |prop|
+      filter = prop.filter_name
+      session[filter] = params[filter]
+    end
+
+    current_user.last_filter = session[:filter_hidden]
+    current_user.last_milestone_id = session[:filter_milestone]
+    current_user.last_project_id = session[:filter_project]
+    session[:last_project_id] = session[:filter_project]
+    current_user.save
+  end
+
   def filter_shortlist
 
     tmp = { }
@@ -946,7 +995,7 @@ class TasksController < ApplicationController
       tmp[v] = session[v]
     end
 
-    setup_task_filters
+    do_filter
 
     session[:filter_project_short] = session[:filter_project]
     session[:filter_customer_short] = session[:filter_customer]
