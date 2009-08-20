@@ -66,7 +66,8 @@ class TasksController < ApplicationController
     @group_ids, @groups = group_tasks(@tasks)
   end
 
-  def list
+  # common for list methods
+  def _list
     # Subscribe to the juggernaut channel for Task updates
     session[:channels] += ["tasks_#{current_user.company_id}"]
 
@@ -78,7 +79,10 @@ class TasksController < ApplicationController
     @selected_tags = task_filter.selected_tags || []
     @tasks = task_filter.tasks
     @all_tags = task_filter.tag_counts
+  end
 
+  def list
+    self._list
     respond_to do |format|
       format.html # list.html.erb
       format.js { render :partial => "task_list_v2", :layout => false }
@@ -1312,7 +1316,7 @@ class TasksController < ApplicationController
     session[:hide_dependencies] = "1"
     session[:sort] = "0"
 
-    self.list
+    self._list
 
     # Restore filtering
     [:filter_customer, :filter_milestone, :filter_project, :filter_user, :filter_hidden, :filter_status, :group_by, :hide_deferred, :hide_dependencies, :sort].each do |v|
