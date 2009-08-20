@@ -1611,7 +1611,10 @@ class TasksController < ApplicationController
     task.due_at = tz.utc_to_local(@task.due_at) unless task.due_at.nil?
     @tags = Tag.top_counts({ :company_id => current_user.company_id, :project_ids => current_project_ids, :filter_hidden => session[:filter_hidden]})
 
-    @logs = WorkLog.find(:all, :order => "work_logs.started_at desc,work_logs.id desc", :conditions => ["work_logs.task_id = ? #{"AND (work_logs.comment = 1 OR work_logs.log_type=6)" if session[:only_comments].to_i == 1}", task.id], :include => [:user, :task, :project])
+    only_comments = (session[:only_comments].to_i == 1)
+    work_log_conditions = ["work_logs.task_id = ?#{" AND (work_logs.comment = ? OR work_logs.log_type=6)" if only_comments}", task.id]
+    work_log_conditions += true if only_comments
+    @logs = WorkLog.find(:all, :order => "work_logs.started_at desc,work_logs.id desc", :conditions => work_log_conditions, task.id], :include => [:user, :task, :project])
     @logs ||= []
 
     @projects = User.find(current_user.id).projects.find(:all, :order => 'name', :conditions => ["completed_at IS NULL"]).collect {|c| [ "#{c.name} / #{c.customer.name}", c.id ] if current_user.can?(c, 'create')  }.compact unless current_user.projects.nil?
