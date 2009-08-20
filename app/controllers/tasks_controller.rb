@@ -1455,7 +1455,7 @@ class TasksController < ApplicationController
   def get_comment
     @task = Task.find(params[:id], :conditions => "project_id IN (#{current_project_ids})") rescue nil
     if @task
-      @comment = WorkLog.find(:first, :order => "work_logs.started_at desc,work_logs.id desc", :conditions => ["work_logs.task_id = ? AND work_logs.comment = 1", @task.id], :include => [:user, :task, :project])
+      @comment = WorkLog.find(:first, :order => "work_logs.started_at desc,work_logs.id desc", :conditions => ["work_logs.task_id = ? AND work_logs.comment = ?", @task.id, true], :include => [:user, :task, :project])
     end 
   end 
 
