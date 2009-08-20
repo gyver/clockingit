@@ -4,7 +4,9 @@ class ConvertTypePrioritySeverityToProperties < ActiveRecord::Migration
 
     add_column Property.table_name, :default_sort, :boolean unless Property.column_names.include?('default_sort')
     add_column Property.table_name, :default_color, :boolean unless Property.column_names.include?('default_color')
-    change_column PropertyValue.table_name, :default, :boolean
+#    change_column PropertyValue.table_name, :default, :boolean
+    remove_column PropertyValue.table_name, :default
+    add_column PropertyValue.table_name, :default, :boolean
 
     Property.reset_column_information
 

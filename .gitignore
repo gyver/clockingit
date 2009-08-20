@@ -12,6 +12,7 @@ config/ferret_server.yml
 config/environment.local.rb
 config/juggernaut_config.yml
 config/custom.gems.rb
+config/mongrel_cluster.yml
 semantic.cache
 public/javascripts/base_*.js
 public/javascripts/portal_*.js
@@ -23,3 +24,4 @@ tmp
 .project
 .idea
 lib/scripts/*.rb
+nohup.out
