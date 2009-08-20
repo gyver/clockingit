@@ -9,7 +9,7 @@ class AddForeignKeysForCustomers < ActiveRecord::Migration
   }
 
   def self.up
-    add_foreign_keys_for(TABLES)
+    # add_foreign_keys_for(TABLES)
   end
 
   def self.down
