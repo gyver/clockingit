@@ -10,35 +10,66 @@ The easiest way to get the source and easily update it from time to time is with
 
 === Step 2: Prerequsites
 
-You need to be running some type of Unix: OSX, Linux, Solaris, BSD. Windows will probably not work.
+You need to be running some type of Unix: OSX, Linux, Solaris, BSD. Windows will probably not work. You will also need a database. MySQL has been heavily tested, and some people are running postgresql.
 
-Install the following packages. Under FreeBSD this can be easily done using 'portinstall' and then each of these ports:
+Install the following packages:
 
-* ruby18-gems
-* ruby18-mysql
-* rubygem-rake
+* ruby gems
+* ruby mysql driver (you could also choose postgresql)
+* rake
 * ImageMagick
+
+How to install these will differ on each platform. Some possibilities:
+
+==== FreeBSD
+
+  portinstall ruby-iconv ruby18-gems ruby18-mysql rubygem-rake ImageMagick
+
+==== OSX
+
+First install the Macports system from http://www.macports.org. Then:
+
+  sudo port install rb-rubygems rb-mysql rb-rake ImageMagick
+
+==== Other
 
 Under other operating systems use your favourite package manager to ensure you have Ruby 1.8.x, rubygems, Imagemagick, Rake and the Ruby mysql driver installed.
 
-Then install Phusion Passenger from http://www.modrails.com/install.html You can also run CIT with Mongrel, but it tends to be a little easier with Phusion to set up. Make sure you set up the appropriate virtual host in Apache.
 
-=== Step 3: Ruby gems
+=== Step 3: Phusion Passenger
 
-There are a bunch of gems which are needed for running CIT. If you cd into the top of your clockingIT installation, then type:
+Install Phusion Passenger from http://www.modrails.com/install.html You can also run CIT with Mongrel, but it tends to be a little easier with Phusion to set up.
 
-  rake gems
+Naturally you'll want to be running Apache httpd and have an appropriate virtual host set up. There are lots of great resources out there to help with that. The virtual host should point to the top of the CIT installation directory.
 
-That will tell you what you need to install.
 
-=== Step 4: Setup
+=== Step 4: Setup configuration and database
 
   ruby setup.rb
+  
+  
+=== Step 5: Ruby gems
+
+There are a few Ruby gems which are needed for running CIT. Change directory into the top of your CIT installation, then type:
+
+  rake gems:install
+
+That will install the gems you need.
+
+If you have trouble on OSX with the mysql gem (this seems to be an issue on 10.5 and 10.6), then try this
+  sudo env ARCHFLAGS="-arch i386" gem install mysql -- --with-mysql-include=/opt/local/include/mysql5 --with-mysql-lib=/opt/local/lib/mysql5 --with-mysql-config=/opt/local/lib/mysql5/bin/mysql_config
+
+
+
 
 == Upgrading to a newer revision
 
   git checkout db/schema.rb
   git pull
+
+Check that there aren't any updated gems or new gems to install. If there are, just follow the instructions you will be given on screen.
+
+  rake gems
 
 Next, make sure the database is updated and javascript/css rebuilt.
 

@@ -1,12 +1,11 @@
+require "fastercsv"
 # Handle tasks for a Company / User
-# Author:: Erlend Simonsen (mailto:admin@clockingit.com)
 #
 class TasksController < ApplicationController
 #  cache_sweeper :cache_sweeper, :only => [:create, :update, :destroy, :ajax_hide, :ajax_restore,
 #    :ajax_check, :ajax_uncheck, :start_work_ajax, :stop_work, :swap_work_ajax, :save_log, :update_log,
 #    :cancel_work_ajax, :destroy_log ]
 
-  require_dependency 'fastercsv'
 
   def new
     @projects = current_user.projects.find(:all, :order => 'name', :conditions => ["completed_at IS NULL"]).collect {|c| [ "#{c.name} / #{c.customer.name}", c.id ] if current_user.can?(c, 'create')  }.compact unless current_user.projects.nil?
@@ -39,12 +38,12 @@ class TasksController < ApplicationController
     @notify_targets = @notify_targets.flatten.uniq
     @notify_targets ||= []
   end
-  
+
   def index
     redirect_to 'list'
   end
   
-  def list
+  def list_old
     # Subscribe to the juggernaut channel for Task updates
     session[:channels] += ["tasks_#{current_user.company_id}"]
 
@@ -65,6 +64,25 @@ class TasksController < ApplicationController
     @all_tags = task_filter.tag_counts
 
     @group_ids, @groups = group_tasks(@tasks)
+  end
+
+  def list
+    # Subscribe to the juggernaut channel for Task updates
+    session[:channels] += ["tasks_#{current_user.company_id}"]
+
+    @tags = {}
+    @tags.default = 0
+    @tags_total = 0
+
+    task_filter = TaskFilter.new(self, params)
+    @selected_tags = task_filter.selected_tags || []
+    @tasks = task_filter.tasks
+    @all_tags = task_filter.tag_counts
+
+    respond_to do |format|
+      format.html # list.html.erb
+      format.js { render :partial => "task_list_v2", :layout => false }
+    end
   end
 
   # Return a json formatted list of options to refresh the Milestone dropdown
@@ -136,9 +154,9 @@ class TasksController < ApplicationController
   end
 
   def dependency
-    id = params[:dependency_id]
-    conditions = { :project_id => current_projects }
-    dependency = current_user.company.tasks.find(id, :conditions => conditions)
+    task_num = params[:dependency_id]
+    conditions = { :task_num => task_num, :project_id => current_projects }
+    dependency = current_user.company.tasks.find(:first, :conditions => conditions)
 
     render(:partial => "dependency", 
            :locals => { :dependency => dependency, :perms => {} })
@@ -179,7 +197,8 @@ class TasksController < ApplicationController
     tags = params[:task][:set_tags]
     params[:task][:set_tags] = nil
 
-    @task = current_user.company.tasks.new(params[:task])
+    @task = current_user.company.tasks.new
+    @task.attributes = params[:task]
 
     if !params[:task].nil? && !params[:task][:due_at].nil? && params[:task][:due_at].length > 0
 
@@ -228,6 +247,7 @@ class TasksController < ApplicationController
       @task.set_users(params)
       @task.set_dependency_attributes(params[:dependencies], current_project_ids)
       @task.set_resource_attributes(params[:resource])
+      @task.create_work_log(params[:work_log], current_user)
 
       create_attachments(@task)
       worklog = WorkLog.create_for_task(@task, current_user, params[:comment])
@@ -238,7 +258,7 @@ class TasksController < ApplicationController
 
       Juggernaut.send("do_update(#{current_user.id}, '#{url_for(:controller => 'activities', :action => 'refresh')}');", ["activity_#{current_user.company_id}"])
 
-      flash['notice'] ||= "#{link_to_task(@task)} - #{_('Task was successfully created.')}"
+      flash['notice'] ||= "#{ link_to_task(@task) } - #{_('Task was successfully created.')}"
 
       return if request.xhr?
       redirect_from_last
@@ -255,21 +275,17 @@ class TasksController < ApplicationController
   end
 
   def view
-    @task = Task.find(:first, :conditions => ["project_id IN (#{current_project_ids}) AND task_num = ?", params[:id]])
-    if @task
-      redirect_to :action => 'edit', :id => @task.id
-    else
-      redirect_to :controller => 'views', :action => 'browse'
-    end
+      redirect_to :action => 'edit', :id => params[:id]
   end
 
   def edit
-    @task = Task.find(params[:id], :conditions => ["project_id IN (?)", current_user.projects.collect{|p|p.id}] ) rescue begin
-                                                                                                                           flash['notice'] = _("You don't have access to that task, or it doesn't exist.")
-                                                                                                                           redirect_from_last
-                                                                                                                           return
-                                                                                                                         end 
-                                                                                                                           
+    @task = Task.find(:first, :conditions => ["project_id IN (#{current_project_ids}) AND task_num = ?", params[:id]])
+
+    if @task.nil?
+      flash['notice'] = _("You don't have access to that task, or it doesn't exist.")
+      redirect_from_last
+      return
+    end 
     
     init_form_variables(@task)
   end
@@ -364,6 +380,7 @@ class TasksController < ApplicationController
       @task.set_users(params)
       @task.set_dependency_attributes(params[:dependencies], current_project_ids)
       @task.set_resource_attributes(params[:resource])
+      @task.create_work_log(params[:work_log], current_user)
 
       @task.duration = parse_time(params[:task][:duration], true) if (params[:task] && params[:task][:duration])
       @task.updated_by_id = current_user.id
@@ -524,7 +541,7 @@ class TasksController < ApplicationController
 
       return if request.xhr?
 
-      flash['notice'] ||= "#{link_to_task(@task)} - #{_('Task was successfully updated.')}"
+      flash['notice'] ||= "#{ link_to_task(@task) } - #{_('Task was successfully updated.')}"
       redirect_from_last
     else
       init_form_variables(@task)
@@ -832,10 +849,11 @@ class TasksController < ApplicationController
     @log.company = current_user.company
     @log.project = @task.project
     @log.task = @task
-    @log.customer = @task.project.customer
+    @log.customer = @task.customers.first || @task.project.customer
     @log.started_at = tz.utc_to_local(Time.now.utc)
     @log.duration = 0
     @log.log_type = EventLog::TASK_WORK_ADDED
+    @log.body = @task.description
     
     @log.save
     Juggernaut.send( "do_update(#{current_user.id}, '#{url_for(:controller => 'tasks', :action => 'update_tasks', :id => @task.id)}');", ["tasks_#{current_user.company_id}"])
@@ -845,16 +863,18 @@ class TasksController < ApplicationController
 
   def stop_work
     if @current_sheet
+      task = @current_sheet.task
+
       worklog = WorkLog.new
       worklog.user = current_user
       worklog.company = current_user.company
       worklog.project = @current_sheet.project
-      worklog.task = @current_sheet.task
-      worklog.customer = @current_sheet.project.customer
+      worklog.task = task
+      worklog.customer = task.customers.first || @current_sheet.project.customer
       worklog.started_at = @current_sheet.created_at
       worklog.duration = @current_sheet.duration
       worklog.paused_duration = @current_sheet.paused_duration
-      worklog.body = @current_sheet.body
+      worklog.body = task.description
       worklog.log_type = EventLog::TASK_WORK_ADDED
       worklog.comment = true if @current_sheet.body && @current_sheet.body.length > 0 
       
@@ -1484,6 +1504,18 @@ class TasksController < ApplicationController
     render(:partial => "notification", :locals => { :notification => user })
   end
 
+  def add_client
+    @task = current_user.company.tasks.new
+    if !params[:id].blank?
+      @task = current_user.company.tasks.find(params[:id])
+    end
+
+    customer = current_user.company.customers.find(params[:client_id])
+    @task.task_customers.build(:customer => customer)
+    
+    render(:partial => "task_customer", :locals => { :task_customer => customer })
+  end
+
   def update_work_log
     log = current_user.company.work_logs.find(params[:id])
     updated = log.update_attributes(params[:work_log])
@@ -1630,13 +1662,16 @@ class TasksController < ApplicationController
   ###
   def notify(task, worklog, &block)
     ids = params[:notify] || []
+    emails = (task.notify_emails || "").strip.split(",")
     all_users = []
 
-    if ids.any?
+    if ids.any? or emails.any?
       all_users = ids.map { |id| current_user.company.users.find(id) }
       users = all_users.clone
       users.delete(current_user) if !current_user.receive_own_notifications?
-      emails = users.map { |u| u.email }.uniq.compact
+      emails += users.map { |u| u.email }
+      emails = emails.uniq.compact
+      emails = emails.select { |e| !e.blank? }
 
       worklog.users = users
       
@@ -1649,7 +1684,9 @@ class TasksController < ApplicationController
         worklog.save
       end
       
-      yield(emails) if emails.any?
+      emails.each do |email|
+        yield(email) 
+      end
     end
 
     task.mark_as_notified_last_change(all_users)

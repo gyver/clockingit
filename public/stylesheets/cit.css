@@ -282,6 +282,10 @@ body, p, ol, ul, td, tr {
 .task-icon img {
     height: 16px;
     width: 16px;
+    float:left;
+    padding-top:1px;
+    padding-right:2px;
+    padding-left:2px;
 }
 
 .invalid {
@@ -431,11 +435,10 @@ input.checkbox {
 .ajax {
 }
 
-div#loading {
+#loading {
   position: absolute;
+  z-index: 9;
 }
-
-body > div#loading { position: fixed; }
 
 input:focus, textarea:focus { border: 1px solid #FC0; }
 input, textarea {
@@ -507,6 +510,22 @@ fieldset label.ignore {
 	padding: 3px 0;
 }
 
+fieldset.sidebar label {
+    width: 95px;
+    padding: 3px 0;
+}
+
+fieldset.sidebar input.text {
+    float: right;
+    width: 150px;
+}
+fieldset.sidebar textarea {
+    height: 40px;
+    float: right;
+    margin-right: 0.1em;
+    width: 149px;
+}
+
 fieldset input {
   float: left;
   clear: right;
@@ -516,8 +535,8 @@ fieldset input {
   margin-bottom: 0.2em;
 }
 
-		fieldset#task_information input { float: none; }
-		fieldset#task_information input.button { float: right; }
+fieldset#task_information input { float: none; }
+fieldset#task_information input.button { float: right; }
 
 fieldset img {
   float: left;
@@ -837,7 +856,7 @@ pre.auto_generated {
   color: #CCCCCC;
   font-size: 9px;
   padding-top: 1em;
-  padding-left: 2em;
+  padding-left:0.3em;
 }
 
 .contact a {
@@ -1421,7 +1440,13 @@ a.description {
     margin-top: 0px;
     padding: 0px;
 }
-#taskform .user .removeLink {
+#taskform #task_customers {
+    clear: both;
+}
+#taskform #task_customers .customer {
+    clear: both;
+}
+#taskform .user .removeLink, #taskform #task_customers .removeLink {
     float: right
 }
 #taskform .user.will_notify {
@@ -2076,9 +2101,10 @@ h4 {
 	border-bottom: 1px solid #DDDDDD;
 	border-top: 1px solid #FAFAFA;
 }
-
-
-
+#task_notify_emails {
+    font-size: 12px;
+    width: 150px;
+}
 .informal {
   font-weight: normal;
   font-style: underline;
@@ -2818,3 +2844,89 @@ fieldset.basic li.attribute, fieldset.basic li.property_value {
     float: right;
 }
 
+div.search_filter {
+    text-align: center;
+}
+#search_filter {
+    font-size: 20px;
+    width: 50%;
+}
+#search_filter_auto_complete {
+    width: 50%;
+    background-color: #fff;
+}
+#search_filter_auto_complete ul {
+    background-color: #fff;
+    border:1px solid #888;
+    margin:0;
+    padding:0;
+    width:100%;
+    list-style-type:none;
+    z-index: 100;
+}
+#search_filter_auto_complete ul li {
+    background-color: #fff;
+    font-size: 20px;
+    margin:0;
+    padding:3px;
+    cursor:pointer;
+}
+#search_filter_auto_complete ul li.selected {
+    background-color: #ffb;
+}
+#search_filter_form .links {
+    padding-top: 5px;
+}
+
+#task_list table {
+    border-collapse: collapse;
+    width: 100%;
+}
+#task_list table th {
+    text-align: left;
+}
+#task_list table td, #task_list table th {
+    margin: 0px;
+    padding: 3px;
+    padding-right: 15px;
+}
+    
+#task_list tr {
+    cursor: pointer;
+}
+#task_list tr:hover {
+    background: #9f9;
+}
+
+/* sortable tables */
+table.tablesorter {
+	background-color: #CDCDCD;
+	margin:10px 0pt 15px;
+	width: 100%;
+	text-align: left;
+}
+table.tablesorter thead tr th, table.tablesorter tfoot tr th {
+	background-color: #e6EEEE;
+	border: 1px solid #FFF;
+	padding: 4px;
+}
+table.tablesorter thead tr .header {
+	background-repeat: no-repeat;
+	background-position: center right;
+	cursor: pointer;
+}
+table.tablesorter tbody td {
+	color: #3D3D3D;
+	padding: 4px;
+	background-color: #FFF;
+	vertical-align: top;
+}
+table.tablesorter tbody tr.odd td {
+	background-color:#F0F0F6;
+}
+table.tablesorter thead tr .headerSortUp {
+	background-image: url(/images/asc.gif);
+}
+table.tablesorter thead tr .headerSortDown {
+	background-image: url(/images/desc.gif);
+}

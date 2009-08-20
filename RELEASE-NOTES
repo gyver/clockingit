@@ -2,6 +2,39 @@ Clocking IT change history for new functionality and major bug fixes.
 
 For comprehensive details of every change, please consult http://github.com/ari/clockingit/commits/
 
+18 August 2009
+	The QuickAdd feature for quickly adding tasks has been removed. The code has not been maintained for a long time and is now broken with regard to the new features added to tasks this year. Also, the QuickAdd takes much longer to open on the browser than the regular New Task, so there is nothing quick about it. For these reasons it was decided to remove the code and focus on improving speed and usability of the existing task edit view.
+
+17 August 2009
+	A new list view design and filter has now been implemented and switched to be the default. There is still a little more cleanup required but it is almost done. The new filter will be much faster to use for advanced users than the old clunky filter interface. Overall the html is drastically faster to draw in the browser and much faster to render server-side.
+
+7 August 2009
+	Some cosmetic changes to the menus. Translations will need to be updated at some point.
+
+6 August 2009
+  	Use caching for task list. Cache should be cleared manually after server restart - run "rake tmp:cache:clear"
+
+21 July 2009
+	Upgraded to Rails 2.3.3
+
+26 June 2009
+	Incoming emails with no task number are now dropped into a default project set in the company settings view.
+
+24 June 2009
+    Now all URLs reference the task number and not an internal task ID which should not be visible to the user.
+
+17 June 2009
+	Many database constraints and indexes have been added. This will improve speed and also ensure database integrity. Care should be taken when applying these updates to ensure you don't have existing bad data which prevents the constraints from being added.
+	
+16 June 2009
+	Some fixes implemented to allow postgresql to be used.
+
+10 June 2009
+	Rework entire filter section on reports page to bring it more into alignment with the filter for tasks. This means that your previous filter state is preserved when moving from tasks to reports.
+	
+3 June 2009
+	Work logs now can have custom attributes.
+
 1 June 2009
 	Exception emails are now sent to the system admin. This makes it much easier to diagnose problems. In order to use this feature, please add these two lines to the bottom of environment.local.rb
 	ExceptionNotifier.exception_recipients = [ "email@example.com" ]

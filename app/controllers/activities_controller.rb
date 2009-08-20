@@ -1,6 +1,5 @@
 # Show recent activities, and handle the simple tutorial
 #
-# Author:: Erlend Simonsen (mailto:admin@clockingit.com)
 class ActivitiesController < ApplicationController
 
   # Redirect to list
@@ -62,6 +61,7 @@ class ActivitiesController < ApplicationController
   def toggle_menu
     session[:collapse_menu] ||= 0
     session[:collapse_menu] = 1 - session[:collapse_menu].to_i
+    render :text => ""
   end
 
 end

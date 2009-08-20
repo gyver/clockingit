@@ -7,8 +7,8 @@
 <%= "Description:\n#{@milestone.description}" unless @milestone.description.empty? %>
 
 <% unless @action == 'deleted' -%>
-http://<%= @user.company.subdomain%>.<%= $CONFIG[:domain] %>/views/select_milestone/<%= @milestone.id %>
+<%= @user.company.site_URL%>/views/select_milestone/<%= @milestone.id %>
 <% end -%>
-Sent to <%= "${@user.name} <${@user.email}>" %>
+
 -------------------->
 <%= $CONFIG[:productName] %>

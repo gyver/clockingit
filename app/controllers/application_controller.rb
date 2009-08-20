@@ -8,6 +8,7 @@ class ApplicationController < ActionController::Base
   helper :task_filter
   helper :users
   helper :date_and_time
+  helper :javascript
 
 #  helper :all
 
@@ -21,6 +22,7 @@ class ApplicationController < ActionController::Base
   helper_method :current_project_ids
   helper_method :completed_milestone_ids
   helper_method :worked_nice
+  helper_method :link_to_task
 
   before_filter :authorize, :except => [ :login, :validate, :signup, :take_signup, :forgotten_password,
                                          :take_forgotten, :show_logo, :about, :screenshots, :terms, :policy,
@@ -36,7 +38,9 @@ class ApplicationController < ActionController::Base
 
   def current_user
     unless @current_user
-      @current_user = User.find(session[:user_id], :include => [:company, :projects], :conditions => ["projects.completed_at IS NULL"])
+      @current_user = User.find(session[:user_id], 
+                                :include => [ :projects, { :company => :properties } ], 
+                                :conditions => ["projects.completed_at IS NULL"])
     end
     @current_user
   end
@@ -176,69 +180,9 @@ class ApplicationController < ActionController::Base
     true
   end
 
-
   # Parse <tt>1w 2d 3h 4m</tt> or <tt>1:2:3:4</tt> => minutes or seconds
   def parse_time(input, minutes = false)
-    total = 0
-    unless input.nil?
-      miss = false
-      reg = Regexp.new("(#{_('[wdhm]')})")
-      input.downcase.gsub(reg,'\1 ').split(' ').each do |e|
-        part = /(\d+)(\w+)/.match(e)
-        if part && part.size == 3
-          case  part[2]
-          when _('w') then total += e.to_i * current_user.workday_duration * current_user.days_per_week
-          when _('d') then total += e.to_i * current_user.workday_duration
-          when _('h') then total += e.to_i * 60
-          when _('m') then total += e.to_i
-          else 
-            miss = true
-          end
-        end
-      end
-
-      # Fallback to default english parsing
-      if miss
-        eng_total = 0
-        reg = Regexp.new("([wdhm])")
-        input.downcase.gsub(reg,'\1 ').split(' ').each do |e|
-          part = /(\d+)(\w+)/.match(e)
-          if part && part.size == 3
-            case  part[2]
-            when 'w' then eng_total += e.to_i * current_user.workday_duration * current_user.days_per_week
-            when 'd' then eng_total += e.to_i * current_user.workday_duration
-            when 'h' then eng_total += e.to_i * 60
-            when 'm' then eng_total += e.to_i
-            end
-          end
-        end
-        
-        if eng_total > total
-          total = eng_total
-        end
-        
-      end
-      
-      if total == 0
-        times = input.split(':')
-        while time = times.shift
-          case times.size
-          when 0 then total += time.to_i
-          when 1 then total += time.to_i * 60
-          when 2 then total += time.to_i * current_user.workday_duration
-          when 3 then total += time.to_i * current_user.workday_duration * current_user.days_per_week
-          end
-        end
-      end
-
-      if total == 0 && input.to_i > 0
-        total = input.to_i
-      end
-
-      total = total * 60 unless minutes
-      
-    end
-    total
+    TimeParser.parse_time(current_user, input, minutes)
   end
 
   def parse_repeat(r)
@@ -362,10 +306,6 @@ class ApplicationController < ActionController::Base
     session[:last_active] ||= Time.now.utc
   end
 
-  def link_to_task(task)
-    "<strong><small>#{task.issue_num}</small></strong> <a href=\"/tasks/edit/#{task.id}\" class=\"tooltip#{task.css_classes}\" title=\"#{task.to_tip({ :duration_format => current_user.duration_format, :workday_duration => current_user.workday_duration, :days_per_week => current_user.days_per_week, :user => current_user })}\">#{task.name}</a>"
-  end
-
   def double_escape(txt)
     res = txt.gsub(/channel-message-mine/,'channel-message-others')
     res = res.gsub(/\\n|\n|\\r|\r/,'') # remove linefeeds
@@ -487,11 +427,40 @@ class ApplicationController < ActionController::Base
   # Which company does the served hostname correspond to?
   ###
   def company_from_subdomain
-    subdomain = request.subdomains.first if request.subdomains
+    if @company.nil?
+      subdomain = request.subdomains.first if request.subdomains
 
-    company = Company.find(:first, :conditions => ["subdomain = ?", subdomain])
-    company ||= Company.find(:first, :conditions => ["id = 1"])
-
-    return company
+      @company = Company.find(:first, :conditions => ["subdomain = ?", subdomain])
+      if Company.count == 1
+        @company ||= Company.find(:first, :order => "id asc") 
+      end
+    end
+    
+    return @company
   end
+
+  private
+
+  # Returns a link to the given task. 
+  # If highlight keys is given, that text will be highlighted in 
+  # the link.
+  def link_to_task(task, truncate = true, highlight_keys = [])
+    link = "<strong>#{task.issue_num}</strong> "
+
+    url = url_for(:id => task.task_num, :controller => 'tasks', :action => 'edit')
+
+    title = task.to_tip(:duration_format => current_user.duration_format, 
+                        :workday_duration => current_user.workday_duration, 
+                        :days_per_week => current_user.days_per_week, 
+                        :user => current_user)
+    title = highlight_all(title, highlight_keys)
+
+    html = { :class => "tooltip#{task.css_classes}", :title => title }
+    text = truncate ? task.name : self.class.helpers.truncate(task.name, 80)
+    text = highlight_all(text, highlight_keys)
+    
+    link += self.class.helpers.link_to(text, url, html)
+    return link
+  end
+
 end

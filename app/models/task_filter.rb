@@ -74,8 +74,6 @@ class TaskFilter
   def tasks
     if @tasks.nil?
       @tasks = tasks_by_filters
-      @tasks = filter_by_customers_projects_and_milestones(@tasks)
-      @tasks = filter_by_properties(@tasks)
       @tasks = filter_by_tags(@tasks)
       @tasks += unread_tasks if session[:show_all_unread].to_i > 0
       @tasks = sort_tasks(@tasks)
@@ -88,8 +86,11 @@ class TaskFilter
   # Returns tasks matching the filters set up in the current session.
   ###
   def tasks_by_filters
-    to_include = [ :users, :tags, :sheets, :todos, :dependencies, :milestone ]
-    to_include << { :company => :properties}
+    to_include = [ :users, :tags, :sheets, :todos, :dependencies, 
+                   :milestone, :notifications, :watchers, 
+                   :customers ]
+    to_include << { :work_logs => :user }
+    to_include << { :company => :properties }
     to_include << { :project => :customer }
     to_include << { :task_property_values => { :property_value => :property } }
     to_include << { :dependants => [:users, :tags, :sheets, :todos, 
@@ -101,7 +102,9 @@ class TaskFilter
 
     Task.find(:all, 
               :conditions => [ conditions ],
-              :include => to_include)
+              :include => to_include, 
+              :limit => 250,
+              :order => "tasks.id desc")
   end
 
   ###
@@ -150,7 +153,9 @@ class TaskFilter
     filter = ""
 
     filter = filter_by_user
-    filter << filter_by_status
+    filter += filter_by_status
+    filter += filter_by_milestones_projects_and_customers
+    filter += filter_by_properties
 
     if session[:hide_deferred].to_i > 0
       filter << "(tasks.hide_until IS NULL OR tasks.hide_until < '#{@tz.now.utc.to_s(:db)}') AND "
@@ -164,71 +169,51 @@ class TaskFilter
   ###
   # Filter the given tasks by property values set in the session.
   ###
-  def filter_by_properties(tasks)
+  def filter_by_properties
+    res = []
+
     @company.properties.each do |prop|
       filter_value = session[prop.filter_name]
       filter_values = [ filter_value ].flatten.compact
       next if filter_values.empty?
 
-      to_keep = []
-      filter_values.each do |fv|
-        to_keep += tasks.select do |t|
-          val = t.property_value(prop)
-          val and val.id == fv.to_i
-        end
-      end
-
-      tasks = to_keep.uniq
+      res << "task_property_values.property_value_id in (#{ filter_values.join(", ") })"
     end
 
-    return tasks
-  end
-
-  ###
-  # Removes any tasks from the given list that filters rule out.
-  ###
-  def filter_by_customers_projects_and_milestones(tasks)
-    if milestone_ids.empty? and project_ids.empty? and customer_ids.empty?
-      return tasks
-    end
-
-    res = []
-    tasks.each do |task|
-      project = task.project
-      milestone = task.milestone
-      customer = project.customer
-
-      if can_view_by_customer?(task)
-        res << task
-      elsif can_view_by_project?(task.project.id)
-        res << task
-      elsif can_view_by_milestone?(task)
-        res << task
-      end
-    end
-
-    return res
-  end
-
-  def can_view_by_customer?(task)
-    customer_ids.any? and customer_ids.include?(task.project.customer.id)
-  end
-
-  def can_view_by_project?(project_id)
-    project_ids.any? and project_ids.include?(project_id)
-  end
-
-  def can_view_by_milestone?(task)
-    return false if milestone_ids.empty?
-
-    milestone = task.milestone
-    if milestone
-      return milestone_ids.include?(milestone.id)
+    if res.any?
+      return res.join(" AND ") + " AND "
     else
-      return milestone_ids.include?(-(task.project.id + 1))
+      return ""
     end
   end
-  
+
+  ###
+  # Returns a string to use for filtering the task to display
+  # based on the filter_milestone, filter_customer and filter_project
+  # values in session.
+  ###
+  def filter_by_milestones_projects_and_customers
+    res = []
+
+    if milestone_ids.any? and !milestone_ids.include?(ALL_MILESTONES)
+      res << "tasks.milestone_id IN (#{ milestone_ids.join(", ") })"
+    end
+
+    if customer_ids.any? and !customer_ids.include?(ALL_CUSTOMERS)
+      res << "projects.customer_id IN (#{ customer_ids.join(", ") })"
+    end
+
+    if project_ids.any? and !project_ids.include?(ALL_PROJECTS)
+      res << "tasks.project_id IN (#{ project_ids.join(", ") })"
+    end
+
+    if res.any?
+      return "(#{ res.join(" OR ") }) AND "
+    else
+      return ""
+    end
+  end
+
   def customer_ids
     @customer_ids ||= TaskFilter.filter_ids(session, :filter_customer, ALL_CUSTOMERS)
   end

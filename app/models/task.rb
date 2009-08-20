@@ -1,3 +1,5 @@
+require "active_record_extensions"
+
 # A task
 #
 # Belongs to a project, milestone, creator
@@ -27,7 +29,7 @@ class Task < ActiveRecord::Base
   has_many      :users, :through => :task_owners, :source => :user
   has_many      :task_owners, :dependent => :destroy
 
-  has_many      :work_logs, :dependent => :destroy
+  has_many      :work_logs, :dependent => :destroy, :order => "started_at asc"
   has_many      :attachments, :class_name => "ProjectFile", :dependent => :destroy
 
   has_many      :notifications, :dependent => :destroy
@@ -42,7 +44,11 @@ class Task < ActiveRecord::Base
   has_and_belongs_to_many  :dependencies, :class_name => "Task", :join_table => "dependencies", :association_foreign_key => "dependency_id", :foreign_key => "task_id", :order => 'dependency_id'
   has_and_belongs_to_many  :dependants, :class_name => "Task", :join_table => "dependencies", :association_foreign_key => "task_id", :foreign_key => "dependency_id", :order => 'task_id'
 
-  has_many :task_property_values, :dependent => :destroy
+  has_many :task_property_values, :dependent => :destroy, :include => [ :property ]
+
+  has_many :task_customers, :dependent => :destroy
+  has_many :customers, :through => :task_customers, :order => "customers.name asc"
+  adds_and_removes_using_params :customers
 
   has_one       :ical_entry
 
@@ -55,6 +61,8 @@ class Task < ActiveRecord::Base
   
   validates_presence_of		:company
   validates_presence_of		:project
+
+  before_create :set_task_num
 
   after_save { |r|
     r.ical_entry.destroy if r.ical_entry
@@ -265,8 +273,14 @@ class Task < ActiveRecord::Base
     self.sheets.size > 0
   end
 
-  def set_task_num(company_id)
-    @attributes['task_num'] = Task.maximum('task_num', :conditions => ["company_id = ?", company_id]) + 1 rescue 1
+  def set_task_num(company_id = nil)
+    company_id ||= company.id
+
+    num = Task.maximum('task_num', :conditions => ["company_id = ?", company_id]) 
+    num ||= 0
+    num += 1 
+
+    @attributes['task_num'] = num
   end
 
   def time_left
@@ -1078,5 +1092,25 @@ class Task < ActiveRecord::Base
     end
 
     return res
+  end
+
+  # Creates a new work log for this task using the given params
+  def create_work_log(params, user)
+    if params and !params[:duration].blank?
+      params[:duration] = TimeParser.parse_time(user, params[:duration])
+      params[:started_at] = TimeParser.date_from_params(user, params, :started_at)
+      if params[:body].blank?
+        params[:body] = self.description
+      end
+      params.merge!(:user => user,
+                    :company => self.company, 
+                    :project => self.project, 
+                    :customer => (self.customers.first || self.project.customer))
+      self.work_logs.build(params).save!
+    end
+  end
+
+  def last_comment
+    @last_comment ||= self.work_logs.reverse.detect { |wl| wl.comment? }
   end
 end

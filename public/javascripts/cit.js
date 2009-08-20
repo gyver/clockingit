@@ -13,7 +13,11 @@ function Hover(prefix, element) {
 function ClearHover() {
 }
 
-// show progress spinner (should be replaced with jquery-ui later
+
+// -------------------------
+// show progress spinner
+//
+
 function showProgress() {
 	jQuery('#loading').show('fast');
 }
@@ -21,30 +25,23 @@ function hideProgress() {
 	jQuery('#loading').hide('fast');
 }
 
-function updateLoading(event){
-
-  if($('loading').visible) {
-
-    var scrollposY=0;
-    if (window.pageYOffset){
-      scrollposY = window.pageYOffset;
-    }
-    else if (document.documentElement && document.documentElement.scrollTop){
-      scrollposY = document.documentElement.scrollTop;
-        }
-    else if (document.getElementById("body").scrollTop){
-      scrollposY = document.getElementById("body").scrollTop;
-    }
-
-    $("loading").style.top = (scrollposY + event.clientY - 8) + "px";
-    $("loading").style.left = event.clientX + 10 +"px";
-    $("loading").style.zIndex=9;
-  }
-}
-
-Event.observe(window, "load", function(e) {
-    Event.observe(document, "mousemove", function(e) {updateLoading(e);} );
+jQuery(document).mousemove(function(e) {
+	if(jQuery('#loading').is(':visible')) {
+		jQuery("#loading").css({
+            top: (e.pageY  - 8) + "px",
+            left: (e.pageX + 10) + "px"
+        });
+	}
 });
+
+jQuery("#loading").bind("ajaxSend", function(){
+   jQuery(this).show('fast');
+ }).bind("ajaxComplete", function(){
+   jQuery(this).hide('fast');
+});
+
+// -------------------------
+
 
 function tip(myEvent,tip){
   var scrollposY=0;
@@ -122,7 +119,7 @@ function hide(e){
 function fetchComment(e) {
   var elements = e.toString().split("/");
   var taskId = elements[elements.size()-1];
-  new Ajax.Request('/tasks/get_comment/' + taskId + ".js", {asynchronous:true, evalScripts:true, onComplete:function(request){updateComment(taskId);} } );
+  jQuery.get('/tasks/get_comment/' + taskId + ".js", function(data) {updateComment(taskId);} );
 }
 
 function updateComment(taskId) {
@@ -188,50 +185,15 @@ function inline_image(el) {
 }
 
 function HideAjax() {
-  var a = document.getElementsByClassName( 'ajax', 'div' );
-  for( var i = 0; i < a.length; i++ )
-    jQuery(a[i]).hide();
+  jQuery('div.ajax').hide();
 }
 
 function HideMenus() {
-  var a = document.getElementsByClassName( 'amenu', 'div' );
-  for( var i = 0; i < a.length; i++ )
-    jQuery(a[i]).hide();
+  jQuery('div.amenu').hide();
 }
 
 function ShowMenus() {
-  var a = document.getElementsByClassName( 'amenu', 'div' );
-  for( var i = 0; i < a.length; i++ )
-    jQuery(a[i]).show();
-}
-
-function HideDummy() {
-//  var a = document.getElementsByClassName( 'dummy', 'li' );
-//  for( var i = 0; i < a.length; i++ ) {
-//    Element.removeClassName( a[i], "task");
-//    Element.hide(a[i]);
-//  }
-
-//  var a = document.getElementsByClassName( 'dummy', 'ul' );
-//  for( var i = 0; i < a.length; i++ ) {
-//    Element.removeClassName( a[i], "comp_drag");
-//    Element.hide(a[i]);
-//  }
-
-}
-
-function ShowDummy() {
-//  var a = document.getElementsByClassName( 'dummy', 'li' );
-//  for( var i = 0; i < a.length; i++ ) {
-//    Element.addClassName( a[i], "task");
-//    Element.show(a[i]);
-//  }
-//  var a = document.getElementsByClassName( 'dummy', 'ul' );
-//  for( var i = 0; i < a.length; i++ ) {
-//    Element.addClassName( a[i], "component_drag");
-//    Element.show(a[i]);
-//  }
-//  UpdateDnD();
+  jQuery('div.amenu').show();
 }
 
 function UpdateDnD() {
@@ -243,44 +205,31 @@ function UpdateDnD() {
 }
 
 function EnableDND() {
-  Element.hide('enable_dnd');
+  jQuery('#enable_dnd').hide();
   HideMenus();
   Sortable.create("components_sortable", {dropOnEmpty:true, handle:'handle_comp', onUpdate:function(){new Ajax.Request('/components/ajax_order_comp', {asynchronous:true, evalScripts:true, onComplete:function(request){Element.hide('loading');}, onLoading:function(request){jQuery('#loading').show();}, parameters:Sortable.serialize("components_sortable")});}, only:'component', tree:true});
   Sortable.create("tasks_sortable", {dropOnEmpty:true, handle:'handle', onUpdate:function(){new Ajax.Request('/components/ajax_order', {asynchronous:true, evalScripts:true, onComplete:function(request){Element.hide('loading');}, onLoading:function(request){jQuery('#loading').show();}, parameters:Sortable.serialize("tasks_sortable")});}, only:'task', tree:true});
-  var h = document.getElementsByClassName( 'handle', 'img' );;
-  for( var i = 0; i < h.length; i++ ) {
-    jQuery( h[i] ).show();
-  }
-  var h = document.getElementsByClassName( 'handle_comp', 'img' );;
-  for( var i = 0; i < h.length; i++ ) {
-    jQuery( h[i] ).show();
-  }
+  jQuery('img.handle').show();
+  jQuery('img.handle_comp').show();
   jQuery('#disable_dnd').show();
 }
 
 function DisableDND() {
-  Element.hide('disable_dnd');
+  jQuery('#disable_dnd').hide();
   ShowMenus();
-  var h = document.getElementsByClassName( 'handle', 'img' );;
-  for( var i = 0; i < h.length; i++ ) {
-    Element.hide( h[i] );
-  }
-  var h = document.getElementsByClassName( 'handle_comp', 'img' );;
-  for( var i = 0; i < h.length; i++ ) {
-    Element.hide( h[i] );
-  }
+  jQuery('img.handle').hide();
+  jQuery('img.handle_comp').hide();
   jQuery('#enable_dnd').show();
 }
 
 function do_update(user, url) {
   if( user != userId ) {
-    new Ajax.Request(url, {asynchronous: true, evalScripts: true });
+      jQuery.get(url);
   }
 }
 
 function do_execute(user, code) {
   if( user != userId ) {
-//    alert(code);
     eval(code);
   }
 }
@@ -320,7 +269,7 @@ function fixShortLinks() {
   $$('a.stop-work-link').each(function(e) {
       if( e.href != '#' ) {
         Event.observe(e, "click", function(e) {
-            new Ajax.Request('/tasks/stop_work_shortlist', {asynchronous:true, evalScripts:true, onComplete:function(request){Element.hide('loading');}, onLoading:function(request){jQuery('#loading').show();}});
+              jQuery.get('/tasks/stop_work_shortlist');
             return false;
           });
         e.href = '#';
@@ -339,7 +288,7 @@ function toggleChatPopup(el) {
   if( Element.hasClassName(el.up(), 'presence-section-active') ) {
     Element.removeClassName(el.up(), 'presence-section-active');
     $$("#" + el.up().id + " .presence-shadow").each(function(e) { Element.hide(e); });
-    new Ajax.Request('/shout/chat_hide/' + el.up().id, {asynchronous:true, evalScripts:true});
+	jQuery.get('/shout/chat_hide/' + el.up().id);
   } else if(Element.hasClassName(el.up(), 'presence-section')) {
     $$('.presence-section-active').each(function(el) {
 					  Element.removeClassName(el, 'presence-section-active');
@@ -353,12 +302,12 @@ function toggleChatPopup(el) {
     jQuery("#" + el.up().id + " .presence-shadow").show();
     jQuery("#" + el.up().id + " input").focus();
 
-    new Ajax.Request('/shout/chat_show/' + el.up().id, {asynchronous:true, evalScripts:true});
+      jQuery.get('/shout/chat_show/' + el.up().id);
   }
 }
 
 function closeChat(el) {
-  new Ajax.Request('/shout/chat_close/' + el.up().id, {asynchronous:true, evalScripts:true});
+  jQuery.get('/shout/chat_close/' + el.up().id);
   jQuery(el).remove();
 }
 
@@ -396,6 +345,7 @@ jQuery(document).ready(function() {
     jQuery('#tag-block').html(tagsHTML);
 
     fixNestedCheckboxes();
+    updateTooltips();
 });
 
 /*
@@ -429,7 +379,23 @@ function removeSearchFilter(link) {
     link = jQuery(link);
     var form = link.parents("form");
     link.parent(".search_filter").remove();
-    form.submit();
+
+    form[0].onsubmit();
+}
+
+function addSearchFilter(textField, selected) {
+    selected = jQuery(selected);
+    var idField = selected.find(".id");
+    
+    if (idField && idField.length > 0) {
+	var filterForm = jQuery("#search_filter_form");
+	var clone = idField.clone();
+	filterForm.append(clone);
+	filterForm[0].onsubmit();
+    }
+    else {
+	// probably selected a heading, just ignore
+    }
 }
 
 function addProjectToUser(input, li) {
@@ -700,9 +666,10 @@ function updatePositionFields(listSelector) {
 
 function removeTaskFilter(sender) {
     var li = jQuery(sender).parent();
+    var form = li.parents("form");
     li.remove();
 
-    jQuery("#filter_form").submit();
+    form.submit();
 }
 
 function addTaskFilter(sender, id, field_name) {
@@ -743,15 +710,27 @@ function addUserToTask(input, li) {
     var userId = jQuery(li).find(".complete_value").text();
     var taskId = jQuery("#task_id").val();
 
-    var url = document.location.toString();
-    url = url.replace("/edit/", "/add_notification/");
-    url = url.replace("#", "");
     var url = "/tasks/add_notification";
-
     var params = { user_id : userId, id : taskId }
     jQuery.get(url, params, function(data) {
 	jQuery("#task_notify").append(data);
 	highlightActiveNotifications();
+    });
+}
+
+/*
+  Adds the selected customer to the current task list of clients
+*/
+function addCustomerToTask(input, li) {
+    jQuery(input).val("");
+
+    var clientId = jQuery(li).find(".complete_value").text();
+    var taskId = jQuery("#task_id").val();
+
+    var url = "/tasks/add_client";
+    var params = { client_id : clientId, id : taskId }
+    jQuery.get(url, params, function(data) {
+	jQuery("#task_customers").append(data);
     });
 }
 
@@ -803,4 +782,69 @@ function toggleWorkLogApproval(sender, workLogId) {
     jQuery.post("/tasks/update_work_log", {
 	id : workLogId,
 	"work_log[approved]" : checked });
+}
+
+
+// Sortable table helpers
+
+/*
+  Makes the given table sortable.
+  If defaultSortColumn and defaultSortOrder are given, the table will
+  initally be sorted according to those values
+*/
+function makeSortable(table, defaultSortColumn, defaultSortOrder) {
+    var sort = [];
+
+    if (defaultSortColumn && defaultSortColumn != "") {
+	var selector = "th:contains('" + defaultSortColumn + "')";
+	var headers = table.find("th");
+	var column = table.find(selector);
+	var index = headers.index(column);
+
+	var dir = (defaultSortOrder == "up" ? 1 : 0);
+	sort = [ [ index, dir ] ];
+    }
+
+    table.tablesorter({
+	sortList: sort,
+	widgets: ["zebra"],
+	textExtraction: "complex",
+	headers: {
+	    5: { sorter : "digit" }
+	}
+    });
+}
+
+/*
+  Returns the text to sort a table by from the given node
+*/
+function tableSortText(node) {
+    var res = node.innerHTML;
+	    
+    var link = jQuery(node).children("a");
+    if (link.length > 0) {
+	res = link.text();
+    }
+    
+    res = jQuery.trim(res).toLowerCase();
+    return res;
+}
+
+/*
+  Saves the sort params to session for the given event
+*/
+function saveSortParams(event) {
+    var table = jQuery(event.target);
+    var selected = table.find(".headerSortDown");
+    var direction = "down";
+    if (selected.length == 0) {
+	selected = table.find(".headerSortUp");
+	direction = "up";
+    }
+
+    selected = jQuery.trim(selected.text());
+    jQuery.post("/filter/set_single_task_filter", {
+    	name : "sort",
+    	value : (selected + "_" + direction)
+    });
 }

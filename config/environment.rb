@@ -5,7 +5,7 @@
 # ENV['RAILS_ENV'] ||= 'production'
 
 # Specifies gem version of Rails to use when vendor/rails is not present
-RAILS_GEM_VERSION = '2.3.2' unless defined? RAILS_GEM_VERSION
+RAILS_GEM_VERSION = '2.3.3' unless defined? RAILS_GEM_VERSION
 
 
 # Bootstrap the Rails environment, frameworks, and default configuration
@@ -13,7 +13,6 @@ require File.join(File.dirname(__FILE__), 'boot')
 
 require File.join(File.dirname(__FILE__), '../lib/localization.rb')
 Localization.load
-
 
 Rails::Initializer.run do |config|
   # Settings in config/environments/* take precedence over those specified here.
@@ -51,40 +50,40 @@ Rails::Initializer.run do |config|
   # config.i18n.load_path += Dir[Rails.root.join('my', 'locales', '*.{rb,yml}')]
   # config.i18n.default_locale = :de
 
-  # See Rails::Configuration for more options
-  config.logger = Logger.new("#{RAILS_ROOT}/log/#{ENV['RAILS_ENV']}.log", 5)
+  # Rotate logs when they reach 50Mb and keep 5 old logs
+  config.logger = Logger.new(config.log_path, 5, 50*1024*1024)
   
-  config.gem 'rails', :version => '2.3.2'
-  config.gem 'actionpack', :version => '2.3.2'
-  config.gem 'actionmailer', :version => '2.3.2'
-  config.gem 'activerecord', :version => '2.3.2'
-  config.gem 'activeresource', :version => '2.3.2'
-  config.gem 'activesupport', :version => '2.3.2'
-  
+
   config.gem 'splattael-activerecord_base_without_table', :lib => 'activerecord_base_without_table', :source => 'http://gems.github.com'
-        
-  config.gem 'mysql', :version => '2.7'
+  config.gem 'mysql'
   config.gem 'daemons', :version => '1.0.10'
-  config.gem 'eventmachine', :version => '0.12.6'
-  config.gem 'json', :version => '1.1.4'
+  config.gem 'eventmachine', :version => '0.12.8'
+  config.gem 'json', :version => '1.1.7'
   config.gem 'mislav-will_paginate', :version => '2.3.8', :lib => 'will_paginate', :source => 'http://gems.github.com'
   config.gem 'ferret', :version => '0.11.6'
 #  config.gem 'acts_as_ferret', :version => '0.4.3'  #installed as a plugin since the gem version breaks
-  config.gem 'fastercsv', :version => '1.4.0'
+  config.gem 'fastercsv', :version => '1.5.0'
   config.gem 'icalendar', :version => '1.1.0'
   config.gem 'tzinfo'
-  config.gem 'RedCloth', :version => '4.1.9'
-  config.gem 'rmagick', :version => '2.9.1', :lib => 'RMagick'
-  config.gem 'ZenTest', :version => '4.0.0', :lib => 'zentest'
-  #config.gem 'hoe', :version => '1.12.1'
+  config.gem 'RedCloth', :version => '4.2.2'
+  config.gem 'rmagick', :lib => 'RMagick'
   config.gem 'gchartrb', :version => '0.8', :lib => 'google_chart'
-  #config.gem 'echoe', :version => '3.1.1'
+
+  # Gems used for automated testing
+  config.gem "thoughtbot-shoulda", :lib => "shoulda", :source => "http://gems.github.com"
+  config.gem "nokogiri"
+  config.gem "webrat"
+  config.gem "faker"
+  config.gem "notahat-machinist", :lib => "machinist", :source => "http://gems.github.com"
   
   # Juggernaut is installed as a plugin and heavily customised, therefore it cannot be listed here.
-  
-  # Required for development only
-  config.gem 'allison', :version => '2.0.3'
-  config.gem 'markaby', :version => '0.5'
+
+  # CUSTOM GEMS
+  # Any gem files which aren't needed for the system to work, but may
+  # be required for your own development should be in this file:
+  custom_gems_file = "#{ RAILS_ROOT }/config/custom.gems.rb"
+  load custom_gems_file if File.exist?(custom_gems_file)
+  load_custom_gems(config) if respond_to?(:load_custom_gems)
 end
 
 ActionController::Base.session_options[:session_expires]= Time.local(2015,"jan")

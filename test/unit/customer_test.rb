@@ -3,17 +3,17 @@ require File.dirname(__FILE__) + '/../test_helper'
 class CustomerTest < ActiveRecord::TestCase
   fixtures :companies, :customers
 
+  should_have_many :task_customers, :dependent => :destroy
+  should_have_many :tasks, :through => :task_customers
+
   def setup
     @internal = customers(:internal_customer)
     @external = customers(:external_customer)
   end
 
-  def test_truth
-    assert_kind_of Customer,  @internal
-  end
-  
   def test_path
-    assert_equal File.join("#{RAILS_ROOT}", 'store', 'logos', "#{@internal.company_id}"), @internal.path
+    path = File.join("#{RAILS_ROOT}", 'store', 'logos', "#{@internal.company_id}")
+    assert_equal path, @internal.path
   end
 
   def test_store_name

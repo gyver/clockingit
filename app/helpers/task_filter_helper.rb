@@ -134,7 +134,9 @@ module TaskFilterHelper
     milestone_ids = TaskFilter.filter_ids(session, :filter_milestone)
     project_ids = TaskFilter.filter_ids(session, :filter_project)
 
-    projects = current_user.projects
+    # need to eager load customers and milestones, so using custom finder here 
+    proj_permissions = current_user.project_permissions.all(:include => { :project => [ :customer, :milestones ] })
+    projects = proj_permissions.map { |pp| pp.project }.uniq
     selected += selected_filters_for(:project, projects)
 
     customers = projects.map { |p| p.customer }.uniq
@@ -243,6 +245,84 @@ module TaskFilterHelper
 
   def show_filter_legend?
     return controller_name == "reports"
+  end
+
+  # Returns an array of all the currently set filters.
+  # Each element in the array is a 3 element array with: 
+  # [ filter_type, filter_value, filter_id ], for example:
+  # [ "project", "project 2", "p3" ]
+  def all_current_filters
+    res = []
+
+    # need to eager load customers and milestones, so using custom finder here 
+    proj_permissions = current_user.project_permissions.all(:include => { :project => [ :customer, :milestones ] })
+    projects = proj_permissions.map { |pp| pp.project }.uniq
+    selected_filters_for(:project, projects).each do |value, id|
+      res << link_to_remove_filter(:filter, _("Project"), value, id)
+    end
+
+    customers = projects.map { |p| p.customer }.uniq
+    customers = customers.sort_by { |c| c.name.downcase }
+    selected_filters_for(:customer, customers).each do |value, id|
+      res << link_to_remove_filter(:filter, _("Client"), value, id)
+    end
+
+    milestones = projects.inject([]) { |array, project| array += project.milestones }
+    selected_filters_for(:milestone, milestones).each do |value, id|
+      res << link_to_remove_filter(:filter, _("Milestone"), value, id)
+    end
+
+    selected_status_names_and_ids.each do |value, id|
+      res << link_to_remove_filter(:filter_status, _("Status"), value, id)
+    end
+
+    selected_user_names_and_ids.each do |value, id|
+      res << link_to_remove_filter(:filter_user, _("User"), value, id)
+    end
+
+    current_user.company.properties.each do |property|
+      filter_name = property.filter_name
+      filter_ids = TaskFilter.filter_ids(session, filter_name)
+      values = property.property_values
+      selected = values.select { |pv| filter_ids.include?(pv.id) }
+      objects_to_names_and_ids(selected, :name_method => :value).each do |value, id|
+        res << link_to_remove_filter(filter_name, property.name, value, id)
+      end
+    end
+
+    return res
+  end
+
+  def link_to_remove_filter(filter_name, name, value, id)
+    res = content_tag :span, :class => "search_filter" do
+      hidden_field_tag("#{ filter_name }[]", id) +
+        "#{ name }:#{ value }" + 
+        link_to_function(image_tag("cross_small.png"), "removeSearchFilter(this)")
+    end
+
+    return res
+  end
+
+  # Return the html for a remote task filter form tag
+  def remote_filter_tag
+    form_remote_tag(:url => "setup_task_filters", 
+                    :html => { :method => "post", :id => "search_filter_form"},
+                    :loading => "showProgress()",
+                    :complete => "hideProgress()",
+                    :update => "#content")
+  end
+
+  # Returns the html/js to make any tables matching selector sortable
+  def sortable_table(selector, default_sort)
+    column, direction = (default_sort || "").split("_")
+
+    res = javascript_include_tag "jquery.tablesorter.min.js"
+    js = <<-EOS
+           makeSortable(jQuery("#{ selector }"), "#{ column }", "#{ direction }");
+           jQuery("#{ selector }").bind("sortEnd", saveSortParams);
+EOS
+    res += javascript_tag(js, :defer => "defer")
+    return res
   end
 
 end

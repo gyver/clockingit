@@ -1,7 +1,5 @@
 # A logical grouping of all users sharing projects
 #
-# Author:: Erlend Simonsen (mailto:admin@clockingit.com)
-#
 
 class Company < ActiveRecord::Base
   has_many      :customers, :dependent => :destroy, :order => "lower(name)"
@@ -15,10 +13,14 @@ class Company < ActiveRecord::Base
   has_many      :shout_channels, :dependent => :destroy
   has_many      :tags, :dependent => :destroy, :order => 'name'
   has_many      :properties, :dependent => :destroy
+  has_many      :property_values, :through => :properties
   has_many      :views, :dependent => :destroy
   has_many      :resources, :dependent => :destroy, :order => "lower(name)"
   has_many      :resource_types, :dependent => :destroy, :order => "lower(name)"
   has_many      :custom_attributes, :dependent => :destroy
+
+  has_many      :preferences, :as => :preferencable
+  include PreferenceMethods
 
 
 #  validates_format_of :contact_email, :with => /^([^@\s]+)@((?:[-a-z0-9]+\.)+[a-z]{2,})$/
@@ -101,6 +103,8 @@ class Company < ActiveRecord::Base
   def rank_by_properties(task)
     rank_by_properties = sort_properties.inject(0) do |rank, property|
       pv = task.property_value(property)
+      rank ||= 0 # for some reason rank is nil occasionally in tests. 
+
       if pv
         rank += (pv.sort_rank || 0) 
       end

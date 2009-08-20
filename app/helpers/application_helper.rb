@@ -213,13 +213,9 @@ module ApplicationHelper
     text
   end
 
-  def link_to_task(task)
-    "<strong>#{task.issue_num}</strong> <a href=\"/tasks/edit/#{task.id}\" class=\"tooltip#{task.css_classes}\" title=\"#{task.to_tip({ :duration_format => current_user.duration_format, :workday_duration => current_user.workday_duration, :days_per_week => current_user.days_per_week, :user => current_user })}\">#{h(truncate(task.name, :length => 80))}</a>"
-  end
-
-  def link_to_task_with_highlight(task, keys)
-    "<strong>#{task.issue_num}</strong> " + link_to( highlight_all(h(task.name), keys), {:controller => 'tasks', :action => 'edit', :id => task.id}, {:class => "tooltip#{task.css_classes}", :title => highlight_all(task.to_tip({ :duration_format => current_user.duration_format, :workday_duration => current_user.workday_duration, :days_per_week => current_user.days_per_week, :user => current_user }), keys)})
-  end
+#   def link_to_task(task)
+#     "<strong>#{task.issue_num}</strong> <a href=\"/tasks/edit/#{task.task_num}\" class=\"tooltip#{task.css_classes}\" title=\"#{task.to_tip({ :duration_format => current_user.duration_format, :workday_duration => current_user.workday_duration, :days_per_week => current_user.days_per_week, :user => current_user })}\">#{h(truncate(task.name, :length => 80))}</a>"
+#   end
 
   def milestone_classes(m)
     return " complete_milestone" unless m.completed_at.nil?
@@ -365,7 +361,7 @@ END_OF_HTML
     
     property = current_user.company.type_property
     if icon_property != 0 and !property
-      property = current_user.company.properties.find(icon_property)
+      property = current_user.company.properties.detect { |p| p.id == icon_property }
     end
 
     pv = task.property_value(property)
@@ -383,7 +379,7 @@ END_OF_HTML
     group_by = session[:group_by]
     if group_by.to_i > 2 and @tasks
       gb = group_by.to_i
-      affected_projects = @tasks.collect(&:project).uniq
+      affected_projects = @tasks.flatten.collect(&:project).uniq
       can = case gb
             when 3  then current_user.can_all?(affected_projects, 'reassign')
             when 4  then current_user.can_all?(affected_projects, 'reassign')
@@ -409,6 +405,7 @@ END_OF_HTML
     links << [ "List", { :controller => "tasks", :action => "list" } ]
     links << [ "Schedule", { :controller => "schedule", :action => "list" } ]
     links << [ "Gantt", { :controller => "schedule", :action => "gantt" } ]
+    links << [ "List (old)", { :controller => "tasks", :action => "list_old" } ]
 
     res = ""
     links.each_with_index do |opts, i|
@@ -573,6 +570,18 @@ END_OF_HTML
     end
 
     return res
+  end
+
+
+  # Returns a string to use as the field id for the current
+  # custom attribute edit field
+  # A new id will be generated each call to this method, so store
+  # it if you need to use it in more than one place
+  def custom_attribute_field_id
+    @ca_field_id ||= 0
+    @ca_field_id += 1
+
+    return "custom_attribute_#{ @ca_field_id }"
   end
 
 end
