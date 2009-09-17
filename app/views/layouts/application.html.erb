@@ -1,5 +1,5 @@
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<html>
+<html xmlns="http://www.w3.org/1999/xhtml">
   <head>
 	<%= javascript_include_merged :base %>
 	<%= yield :tinymce %>
@@ -20,7 +20,7 @@
 	<%= auto_discovery_link_tag(:rss, {:controller => 'feeds', :action => 'rss', :id => current_user.uuid }) %>
 
 	<title><%= $CONFIG[:productName] %></title>
-	<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+	<meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
 	  <% @internal = current_user.company.internal_customer %>
 
 	<style type="text/css">
@@ -36,10 +36,9 @@
 </head>
 <body id="body">
 	<div id="loading" style="z-index: 1000; position:absolute; right: 10px; top: 10px; width:70px; height:20px; color: white; padding:6px; display: none; "><%= image_tag('spinner.gif', :border => 0) %></div>
-	<div id="tip" style="position:absolute;top:250px;left:250px;visibility:hidden;max-width:600px;"><table border="0"><tr><td style="" id="message"><br/></td></tr></table></div>
 	<div id="passive-chat-container" style="display:none;"><table width="100%" cellspacing="0"><tbody id="passive-chat"></tbody></table></div>
 
-	<div id="menu"><%= render(:partial => "layouts/menu") %></div>
+	<%= render(:partial => "layouts/menu") %>
 	<div id="globalMenu"><div id="tabmenu"><%= render(:partial => "layouts/tabmenu")%></div></div>
 
 	<% news = NewsItem.find(:first, :order => "id desc", :conditions => ["id > ?", current_user.seen_news_id ])
@@ -51,28 +50,34 @@
 	</div>
 	<% end %>
 
-	<div class="inlineMessage" id="flash" <%="style=\"display:none\"" unless flash['notice']%>>
-		<span id="flash_message"><%= flash['notice'] %></span>
-		<a onclick="jQuery('#flash').fadeOut(500); return false;" href="#">[<%=_ 'Hide'%>]</a>
+	<% if flash["notice"].present? -%>
+	<div class="inlineMessage" id="flash">
+	  <span id="flash_message"><%= flash["notice"] %></span>
+	  <a class="hide" onclick="jQuery('#flash').fadeOut(500);" href="#">[<%=_ 'Hide'%>]</a>
 	</div>
+	<% end -%>
 
 	<table width="100%" id="main-table" class="content_body">
-		<tr>
-			<td valign="top" id="main_col"><%= @content_for_layout %></td>
-			<td id="right-menu-collapse" onclick="jQuery('#left_menu').toggle(); jQuery.get('/activities/toggle_menu'); return false;">&nbsp;</td>
-			<td align="right" valign="top" style="width:15%;<%= "display:none;" if session[:collapse_menu].to_i > 0 %>" id="left_menu">
-				<%= render(:partial => "/views/panel") %>
-				<div <%= "style=\"display:none;\"" if @current_sheet.nil? || controller.action_name == "stop_work" %> id="work-log">
-					<div class="page_header tooltip" title="<%= _'Text entered will be saved automatically to your current work notes.'%>"><%= _'Work Log' %></div>
-					<form method="post" onsubmit="return false;" id="worklog_form"><textarea name="worklog[body]" id="worklog_body" style="padding:0;margin-top:0.5em;margin-bottom:0.3em;width:100%;" rows="4"><%= @current_sheet.body if @current_sheet%></textarea></form>
-					<div id="worklog-saved" class="optional" style="text-align:right;padding-bottom:0.3em;padding-right:1em;"></div>
-					<br/>
-				</div>
-				<%= render(:partial => "pages/panel") %>
-				<div id="tag-block">
-				</div>
-			</td>
-		</tr>
+	  <tr>
+	    <td valign="top" id="main_col"><%= @content_for_layout %></td>
+	    <td id="right-menu-collapse" onclick="jQuery('#left_menu').toggle(); jQuery.get('/activities/toggle_menu'); return false;">&nbsp;</td>
+	    <td align="right" valign="top" style="width:15%;<%= "display:none;" if session[:collapse_menu].to_i > 0 %>" id="left_menu">
+
+	      <%= render(:partial => "/task_filters/panel") %>
+
+	      <div <%= "style=\"display:none;\"" if @current_sheet.nil? || controller.action_name == "stop_work" %> id="work-log">
+		<div class="page_header tooltip" title="<%= _'Text entered will be saved automatically to your current work notes.'%>"><%= _'Work Log' %></div>
+		<form method="post" onsubmit="return false;" id="worklog_form"><textarea name="worklog[body]" id="worklog_body" style="padding:0;margin-top:0.5em;margin-bottom:0.3em;width:100%;" rows="4"><%= @current_sheet.body if @current_sheet%></textarea></form>
+		<div id="worklog-saved" class="optional" style="text-align:right;padding-bottom:0.3em;padding-right:1em;"></div>
+		<br/>
+	      </div>
+
+	      <%= render(:partial => "pages/panel") %>
+
+	      <% # use content_for(:side_panel) to add extra content to this sidebar -%>
+	      <%= yield(:side_panel) %>
+	    </td>
+	  </tr>
 	</table>
 
 	<% if current_user.company.show_messaging %>
@@ -80,8 +85,10 @@
 		<div id="presence-ui" class="clearfix">
 			<div id="presence-bar">
 				<div id="presence-buttons">
-					<% current_user.chats.each do |@chat| 
-						@user = @chat.target %>
+					<% current_user.chats.each do |chat| 
+					   @chat = chat
+					   @user = @chat.target 
+					   %>
 						<%= render :partial => 'shout/chat_user' if @chat.active >= 0%>
 						<% if @chat.active == 1 %>
 							<script type="text/javascript" language="javascript" charset="utf-8">
@@ -114,9 +121,7 @@
 var userId=<%=current_user.id%>;
 jQuery(document).ready(function () {
 	<% if current_user.option_tooltips.to_i == 1 %>
-	  makeTooltips(1);
-	<% else %>
-	  makeTooltips(0);
+	  jQuery('.tooltip').tooltip({showURL: false });
 	<% end %>
 	
 	<% if controller.controller_name == 'shout' && controller.action_name == 'room' %>

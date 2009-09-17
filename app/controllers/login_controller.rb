@@ -121,7 +121,7 @@ class LoginController < ApplicationController
     Juggernaut.send("do_execute(#{logged_in.id}, '#{double_escape(chat_update)}');", ["info_#{logged_in.company_id}"])
 
     response.headers["Content-Type"] = 'text/html'
-    
+
     redirect_from_last
   end
 
@@ -262,24 +262,6 @@ class LoginController < ApplicationController
         render :text => "<img src=\"/images/accept.png\" border=\"0\" style=\"vertical-align:middle;\"/> <small>Domain OK</small>"
       end
     end
-  end
-
-  def shortlist_auth
-    return if params[:id].nil? || params[:id].empty?
-    user = User.find(:first, :conditions => ["autologin = ?", params[:id]])
-
-    if user.nil?
-      render :nothing => true, :layout => false
-      return
-    end
-
-    session[:user_id] = user.id
-    session[:remember_until] = Time.now.utc + ( session[:remember].to_i == 1 ? 1.month : 1.hour )
-    session[:redirect] = nil
-    authorize
-
-    redirect_to :controller => 'tasks', :action => 'shortlist'
-
   end
 
   private

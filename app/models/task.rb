@@ -12,17 +12,6 @@ class Task < ActiveRecord::Base
 
   include Misc
 
-  acts_as_ferret( { :fields => { 'company_id' => {},
-                      'project_id' => {},
-                      'full_name' => { :boost => 1.5 },
-                      'name' => { :boost => 2.0 },
-                      'issue_name' => { :boost => 0.8 },
-                      'description' => { :boost => 1.7},
-                      'requested_by' => { :boost => 0.7 }
-                    },
-                    :remote => true
-                  } )
-
   belongs_to    :company
   belongs_to    :project
   belongs_to    :milestone
@@ -53,6 +42,8 @@ class Task < ActiveRecord::Base
   has_one       :ical_entry
 
   has_many      :todos, :order => "completed_at IS NULL desc, completed_at desc, position"
+  accepts_nested_attributes_for :todos
+
   has_many      :sheets
   has_and_belongs_to_many :resources
 
@@ -61,6 +52,8 @@ class Task < ActiveRecord::Base
   
   validates_presence_of		:company
   validates_presence_of		:project
+
+  after_validation :fix_work_log_error
 
   before_create :set_task_num
 
@@ -98,27 +91,27 @@ class Task < ActiveRecord::Base
     @start ||= Time.now.utc
 
     case code
-    when ''  :
-    when 'w' :
+    when ''  then
+    when 'w' then
         @date = @start + (7 - @start.wday + args[1].to_i).days
-    when 'm' :
+    when 'm' then
         @date = @start.beginning_of_month.next_month.change(:day => (args[1].to_i))
-    when 'n' :
+    when 'n' then
         @date = @start.beginning_of_month.next_month.change(:day => 1)
       if args[2].to_i < @date.day
         args[2] = args[2].to_i + 7
       end
       @date = @date + (@date.day + args[2].to_i - @date.wday - 1).days
       @date = @date + (7 * (args[1].to_i - 1)).days
-    when 'l' :
+    when 'l' then
         @date = @start.next_month.end_of_month
       if args[1].to_i > @date.wday
         @date = @date.change(:day => @date.day - 7)
       end
       @date = @date.change(:day => @date.day - @date.wday + args[1].to_i)
-    when 'y' :
+    when 'y' then
         @date = @start.beginning_of_year.change(:year => @start.year + 1, :month => args[1].to_i, :day => args[2].to_i)
-    when 'a' :
+    when 'a' then
         @date = @start + args[1].to_i.days
     end
     @date.change(:hour => 23, :min => 59)
@@ -443,6 +436,11 @@ class Task < ActiveRecord::Base
     o = self.users.collect{ |u| u.name}.join(', ')
     o = "Unassigned" if o.nil? || o == ""
     o
+  end
+
+  # Returns all users linked to this task
+  def linked_users
+    @linked_users ||= (self.users + self.watchers)
   end
 
   def set_tags( tagstring )
@@ -1094,23 +1092,45 @@ class Task < ActiveRecord::Base
     return res
   end
 
-  # Creates a new work log for this task using the given params
-  def create_work_log(params, user)
-    if params and !params[:duration].blank?
-      params[:duration] = TimeParser.parse_time(user, params[:duration])
-      params[:started_at] = TimeParser.date_from_params(user, params, :started_at)
-      if params[:body].blank?
-        params[:body] = self.description
+  # Builds a new (unsaved) work log for this task using the given params
+  def build_work_log(params, user)
+    work_log_params = params[:work_log]
+
+    if work_log_params and !work_log_params[:duration].blank?
+      work_log_params[:duration] = TimeParser.parse_time(user, work_log_params[:duration])
+      work_log_params[:started_at] = TimeParser.date_from_params(user, work_log_params, :started_at)
+
+      if work_log_params[:body].blank?
+        body = params.delete(:comment)
+        body = self.description if body.blank?
+        work_log_params[:body] = body
       end
-      params.merge!(:user => user,
-                    :company => self.company, 
-                    :project => self.project, 
-                    :customer => (self.customers.first || self.project.customer))
-      self.work_logs.build(params).save!
+
+      work_log_params.merge!(:user => user, :company => self.company, 
+                             :project => self.project, 
+                             :log_type => EventLog::TASK_WORK_ADDED,
+                             :customer => (self.customers.first || self.project.customer))
+      self.work_logs.build(work_log_params)
     end
   end
 
+
   def last_comment
     @last_comment ||= self.work_logs.reverse.detect { |wl| wl.comment? }
+  end
+
+  private
+
+  # If creating a new work log with a duration, fails because it work log
+  # has a mandatory attribute missing, the error message it the unhelpful
+  # "Work logs in invalid". Fix that here
+  def fix_work_log_error
+    errors = self.errors.instance_variable_get("@errors")
+    if errors.key?("work_logs")
+      errors.delete("work_logs")
+      self.work_logs.last.errors.each_full do |msg|
+        self.errors.add_to_base(msg)
+      end
+    end
   end
 end

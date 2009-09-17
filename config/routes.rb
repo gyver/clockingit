@@ -10,16 +10,20 @@ ActionController::Routing::Routes.draw do |map|
   
   map.home '/forums/index', :controller => 'forums', :action => 'index'
 
-#  map.resources :users, :member => { :admin => :post } do |user|
-#    user.resources :moderators
-#  end
-
   map.resources(:resources, :collection => { 
                   :attributes => :get, 
                   :auto_complete_for_resource_parent => :get },
                 :member => { :show_password => :get })
+
   map.resources :resource_types, :collection => { :attribute => :get }
   map.resources :organizational_units
+
+  map.resources(:task_filters, 
+                :member => { :select => :any },
+                :collection => { 
+                  :reset => :any, :search => :any, 
+                  :update_current_filter => :any, 
+                  :set_single_task_filter => :any })
 
   map.resources :forums do |forum|
     forum.resources :topics, :name_prefix => nil do |topic|
@@ -30,6 +34,16 @@ ActionController::Routing::Routes.draw do |map|
   end
 
   map.resources :posts, :name_prefix => 'all_', :collection => { :search => :get }
+  map.resources :todos, :member => { :toggle_done => :post }
+  map.resources :work_logs
+  map.resources :tags
+
+  map.resources(:work, :collection => { 
+                  :start => :any,
+                  :stop => :any,
+                  :cancel => :any,
+                  :pause => :any
+                })
 
   %w(user forum).each do |attr|
     map.resources :posts, :name_prefix => "#{attr}_", :path_prefix => "/#{attr.pluralize}/:#{attr}_id"

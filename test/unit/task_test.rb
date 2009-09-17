@@ -9,6 +9,7 @@ class TaskTest < ActiveRecord::TestCase
   def setup
     @task = tasks(:normal_task)
   end
+  subject { @task }
 
   # Replace this with your real tests.
   def test_truth
@@ -329,6 +330,10 @@ class TaskTest < ActiveRecord::TestCase
   context "a normal task" do
     setup do
       @task = Task.first
+    end
+
+    should "accept nested attributes for todos" do
+      assert @task.respond_to?("todos_attributes=")
     end
 
     should "add and remove task customers using customer_attributes=" do

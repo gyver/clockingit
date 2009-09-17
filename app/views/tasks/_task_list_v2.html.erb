@@ -1,27 +1,24 @@
 <%= render(:partial => "search_filter", :locals => { :redirect_params => { :tag => params[:tag] }}) %>
 
-<div class="task_view_links" style="<%= @task_only_option_style %>">
-<div class="right"><small><%= link_to( _('Export'), {:controller => 'tasks', :action => 'get_csv'}) %></small></div>
-  <ul class="tabs">
-    <%= task_view_links %>
-  </ul>
-</div>
-
 <div id="task_list">
   <div id="print_title"><%= print_title %></div>
   <table id="list" class="tablesorter">
     <thead>
       <tr>
+	<th></th>
+	<th><%= _("ID") %></th>
 	<th><%= _("Type") %></th>
 	<th><%= _("Summary") %></th>
 	<th><%= _("Client") %></th>
 	<th><%= _("Project/Milestone") %></th>
 	<th><%= _("Due Date") %></th>
-	<th><%= _("Hours Left") %></th>
-	<th><%= _("Assigned To") %></th>
+	<th><%= _("Hours") %></th>
+	<th><%= _("Assigned") %></th>
       </tr>
     </thead>
-    <%= render :partial => "task_row_v2", :collection => @tasks %>
+    <tbody>
+      <%= render :partial => "task_row_v2", :collection => @tasks %>
+    </tbody>
   </table>
 </div>
 

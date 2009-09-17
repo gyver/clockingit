@@ -21,8 +21,9 @@ class ScheduleController < ApplicationController
 
     # Find all tasks for the current month, should probably be adjusted to use
     conditions = "tasks.project_id IN (#{current_project_ids}) AND tasks.company_id = '#{current_user.company_id}' AND ((tasks.due_at is NOT NULL AND tasks.due_at >= '#{start_date.to_s(:db)}' AND tasks.due_at <= '#{end_date.to_s(:db)}') OR (tasks.completed_at is NOT NULL AND tasks.completed_at >= '#{start_date.to_s(:db)}' AND tasks.completed_at <= '#{end_date.to_s(:db)}'))"
-    task_filter = TaskFilter.new(self, params, conditions)
-    @tasks = task_filter.tasks
+    @tasks = current_task_filter.tasks(conditions)
+    # task_filter = TaskFilter.new(self, params, conditions)
+    # @tasks = task_filter.tasks
 
     @milestones = Milestone.find(:all, :conditions => ["company_id = ? AND project_id IN (#{current_project_ids})", current_user.company_id])
     @dates = {}
@@ -525,8 +526,7 @@ class ScheduleController < ApplicationController
   end
   
   def gantt
-    task_filter = TaskFilter.new(self, params)
-    @tasks = task_filter.tasks
+    @tasks = current_task_filter.tasks
     @displayed_tasks = @tasks
 
     
@@ -725,28 +725,28 @@ class ScheduleController < ApplicationController
       page["due-#{@task.dom_id}"].value = (@task.scheduled_at ? @task.scheduled_at.strftime_localized(current_user.date_format) : "")
       page["due-#{@task.dom_id}"].className = ((@task.scheduled? && @task.scheduled_at != @task.due_at) ? "scheduled" : "")
 
-      page << "$('width-#{@task.dom_id}').setStyle({ backgroundColor:'#{gantt_color(@task)}'});"
+      page << "jQuery('#width-#{@task.dom_id}').css('backgroundColor', '#{gantt_color(@task)}');"
 
       milestones = { }
       
       @displayed_tasks.each do |t|
-        page << "$('offset-#{t.dom_id}').setStyle({ left:'#{gantt_offset(@start[t.id])}'});"
-        page << "$('width-#{t.dom_id}').setStyle({ width:'#{gantt_width(@start[t.id],@end[t.id])}'});"
-        page << "$('width-#{t.dom_id}').setStyle({ backgroundColor:'#{gantt_color(t)}'});"
+        page << "jQuery('#offset-#{t.dom_id}').css('left:'#{gantt_offset(@start[t.id])}');"
+        page << "jQuery('#width-#{t.dom_id}').css('width:'#{gantt_width(@start[t.id],@end[t.id])}');"
+        page << "jQuery('#width-#{t.dom_id}').css('backgroundColor:'#{gantt_color(t)}');"
         milestones[t.milestone_id] = t.milestone if t.milestone_id.to_i > 0
       end
       
       milestones.values.each do |m|
         page.replace_html "duration-#{m.dom_id}", worked_nice(m.duration)
         if m.scheduled_date
-          page << "$('offset-due-#{m.dom_id}').setStyle({ left:'#{gantt_offset(m.scheduled_date.midnight.to_time)}'});"
+          page << "jQuery('#offset-due-#{m.dom_id}').css('left', '#{gantt_offset(m.scheduled_date.midnight.to_time)}');"
         else 
-          page << "$('offset-due-#{m.dom_id}').setStyle({ left:'#{gantt_offset(@milestone_end[m.id])}'});"
+          page << "jQuery('#offset-due-#{m.dom_id}').css('left', '#{gantt_offset(@milestone_end[m.id])}');"
         end
         
-        page << "$('offset-#{m.dom_id}').setStyle({ left:'#{gantt_offset(@milestone_start[m.id])}'});"
-        page << "$('offset-#{m.dom_id}').setStyle({ width:'#{gantt_width(@milestone_start[m.id], @milestone_end[m.id]).to_i + 500}px'});"
-        page << "$('width-#{m.dom_id}').setStyle({ width:'#{gantt_width(@milestone_start[m.id], @milestone_end[m.id])}'});"
+        page << "jQuery('#offset-#{m.dom_id}').css('left', '#{gantt_offset(@milestone_start[m.id])}');"
+        page << "jQuery('#offset-#{m.dom_id}').css('width', '#{gantt_width(@milestone_start[m.id], @milestone_end[m.id]).to_i + 500}px');"
+        page << "jQuery('#width-#{m.dom_id}').css('width', '#{gantt_width(@milestone_start[m.id], @milestone_end[m.id])}');"
       end
       
     end
@@ -796,23 +796,23 @@ class ScheduleController < ApplicationController
       milestones = { }
       
       @displayed_tasks.each do |t|
-        page << "$('offset-#{t.dom_id}').setStyle({ left:'#{gantt_offset(@start[t.id])}'});"
-        page << "$('offset-#{t.dom_id}').setStyle({ width:'#{gantt_width(@start[t.id],@end[t.id]).to_i + 500}px'});"
-        page << "$('width-#{t.dom_id}').setStyle({ width:'#{gantt_width(@start[t.id],@end[t.id])}'});"
-        page << "$('width-#{t.dom_id}').setStyle({ backgroundColor:'#{gantt_color(t)}'});"
+        page << "jQuery('#offset-#{t.dom_id}').css('left', '#{gantt_offset(@start[t.id])}');"
+        page << "jQuery('#offset-#{t.dom_id}').css('width', '#{gantt_width(@start[t.id],@end[t.id]).to_i + 500}px');"
+        page << "jQuery('#width-#{t.dom_id}').css('width', '#{gantt_width(@start[t.id],@end[t.id])}');"
+        page << "jQuery('#width-#{t.dom_id}').css('backgroundColor', '#{gantt_color(t)}');"
         milestones[t.milestone_id] = t.milestone if t.milestone_id.to_i > 0
       end
 
       milestones.values.each do |m|
         page.replace_html "duration-#{m.dom_id}", worked_nice(m.duration)
         if m.scheduled_date
-          page << "$('offset-due-#{m.dom_id}').setStyle({ left:'#{gantt_offset(m.scheduled_date.midnight.to_time)}'});"
+          page << "jQuery('#offset-due-#{m.dom_id}').css('left', '#{gantt_offset(m.scheduled_date.midnight.to_time)}');"
         else 
-          page << "$('offset-due-#{m.dom_id}').setStyle({ left:'#{gantt_offset(@milestone_end[m.id])}'});"
+          page << "jQuery('#offset-due-#{m.dom_id}').css('left', '#{gantt_offset(@milestone_end[m.id])}');"
         end
-        page << "$('offset-#{m.dom_id}').setStyle({ left:'#{gantt_offset(@milestone_start[m.id])}'});"
-        page << "$('offset-#{m.dom_id}').setStyle({ width:'#{gantt_width(@milestone_start[m.id], @milestone_end[m.id]).to_i + 500}px'});"
-        page << "$('width-#{m.dom_id}').setStyle({ width:'#{gantt_width(@milestone_start[m.id], @milestone_end[m.id])}'});"
+        page << "jQuery('#offset-#{m.dom_id}').css('left', '#{gantt_offset(@milestone_start[m.id])}');"
+        page << "jQuery('#offset-#{m.dom_id}').css('width', '#{gantt_width(@milestone_start[m.id], @milestone_end[m.id]).to_i + 500}px');"
+        page << "jQuery('#width-#{m.dom_id}').css('width', '#{gantt_width(@milestone_start[m.id], @milestone_end[m.id])}');"
       end
       
     end
@@ -859,13 +859,9 @@ class ScheduleController < ApplicationController
     
     render :update do |page|
       if @schedule_in_progress
-        page << "if( !$('gantt-save-revert').visible() ) {"
-        page << "$('gantt-save-revert').show();"
-        page << "}"
+        page << "jQuery('#gantt-save-revert').show();"
       else 
-        page << "if( $('gantt-save-revert').visible() ) {"
-        page << "$('gantt-save-revert').hide();"
-        page << "}"
+        page << "jQuery('#gantt-save-revert').hide();"
       end
       if @milestone
         page["due-#{@milestone.dom_id}"].value = (@milestone.scheduled_at ? @milestone.scheduled_at.strftime_localized(current_user.date_format) : "")
@@ -873,28 +869,28 @@ class ScheduleController < ApplicationController
       else 
         page["due-#{@task.dom_id}"].value = (@task.scheduled_at ? @task.scheduled_at.strftime_localized(current_user.date_format) : "")
         page["due-#{@task.dom_id}"].className = ((@task.scheduled? && @task.scheduled_at != @task.due_at) ? "scheduled" : "")
-        page << "$('width-#{@task.dom_id}').setStyle({ backgroundColor:'#{gantt_color(@task)}'});"
+        page << "jQuery('#width-#{@task.dom_id}').css('backgroundColor', '#{gantt_color(@task)}');"
       end 
 
       milestones = { }
       
       @displayed_tasks.each do |t|
-        page << "$('offset-#{t.dom_id}').setStyle({ left:'#{gantt_offset(@start[t.id])}'});"
-        page << "$('width-#{t.dom_id}').setStyle({ width:'#{gantt_width(@start[t.id],@end[t.id])}'});"
-        page << "$('width-#{t.dom_id}').setStyle({ backgroundColor:'#{gantt_color(t)}'});"
+        page << "jQuery('#offset-#{t.dom_id}').css('left', '#{gantt_offset(@start[t.id])}');"
+        page << "jQuery('#width-#{t.dom_id}').css('width', '#{gantt_width(@start[t.id],@end[t.id])}');"
+        page << "jQuery('#width-#{t.dom_id}').css('backgroundColor', '#{gantt_color(t)}');"
         milestones[t.milestone_id] = t.milestone if t.milestone_id.to_i > 0
       end
       
       milestones.values.each do |m|
         page.replace_html "duration-#{m.dom_id}", worked_nice(m.duration)
         if m.scheduled_date
-          page << "$('offset-due-#{m.dom_id}').setStyle({ left:'#{gantt_offset(m.scheduled_date.midnight.to_time)}'});"
+          page << "jQuery('#offset-due-#{m.dom_id}').css('left', '#{gantt_offset(m.scheduled_date.midnight.to_time)}');"
         else 
-          page << "$('offset-due-#{m.dom_id}').setStyle({ left:'#{gantt_offset(@milestone_end[m.id])}'});"
+          page << "jQuery('#offset-due-#{m.dom_id}').css('left', '#{gantt_offset(@milestone_end[m.id])}');"
         end
-        page << "$('offset-#{m.dom_id}').setStyle({ left:'#{gantt_offset(@milestone_start[m.id])}'});"
-        page << "$('offset-#{m.dom_id}').setStyle({ width:'#{gantt_width(@milestone_start[m.id], @milestone_end[m.id]).to_i + 500}px'});"
-        page << "$('width-#{m.dom_id}').setStyle({ width:'#{gantt_width(@milestone_start[m.id], @milestone_end[m.id])}'});"
+        page << "jQuery('#offset-#{m.dom_id}').css('left', '#{gantt_offset(@milestone_start[m.id])}');"
+        page << "jQuery('#offset-#{m.dom_id}').css('width', '#{gantt_width(@milestone_start[m.id], @milestone_end[m.id]).to_i + 500}px');"
+        page << "jQuery('#width-#{m.dom_id}').css('width', '#{gantt_width(@milestone_start[m.id], @milestone_end[m.id])}'});"
       end
     end
     

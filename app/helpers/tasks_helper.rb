@@ -3,28 +3,6 @@ module TasksHelper
   def print_title
     filters = []
     title = "<div style=\"float:left\">"
-    status_ids = TaskFilter.filter_status_ids(session)
-    if status_ids.any?
-      statuses = status_ids.map { |id| Task.status_types[id] }
-      title << " #{ _('%s tasks', statuses.join(", ")) } ["
-    else
-      title << "#{_'Tasks'} ["
-    end
-
-    TaskFilter.filter_ids(session, :filter_customer).each do |id|
-      filters << Customer.find(id).name unless id == TaskFilter::ALL_CUSTOMERS
-    end
-
-    
-    TaskFilter.filter_ids(session, :filter_project).each do |id|
-      filters << Project.find(id).name unless id == TaskFilter::ALL_PROJECTS
-    end
-
-    TaskFilter.filter_user_ids(session, false).each do |id|
-      filters << User.find(id).name if id != TaskFilter::ALL_USERS and id > 0
-    end
-
-    filters << current_user.company.name if filters.empty?
 
     title << filters.join(' / ')
 
@@ -38,10 +16,10 @@ module TasksHelper
   # Returns true if the given tasks should be shown in the list.
   # The only time it won't return true is if the task is closed and the
   # filter isn't set to show the closed tasks.
+  # N.B This is unused and can be removed once list_old is
   ###
   def task_shown?(task)
-    status_ids = TaskFilter.filter_status_ids(session)
-    return (status_ids.empty? or status_ids.include?(task.status))
+    true
   end
 
   def render_task_dependants(t, depth, root_present)
@@ -96,9 +74,8 @@ module TasksHelper
       milestones = Milestone.find(:all, :order => 'due_at, name', :conditions => ['company_id = ? AND project_id = ? AND completed_at IS NULL', current_user.company.id, selected_project])
       return select('task', 'milestone_id', [[_("[None]"), "0"]] + milestones.collect {|c| [ c.name, c.id ] }, {}, perms['milestone'])
     else
-      milestone_id = TaskFilter.new(self, session).milestone_ids.first
       milestones = Milestone.find(:all, :order => 'due_at, name', :conditions => ['company_id = ? AND project_id = ? AND completed_at IS NULL', current_user.company.id, selected_project])
-      return select('task', 'milestone_id', [[_("[None]"), "0"]] + milestones.collect {|c| [ c.name, c.id ] }, {:selected => milestone_id || 0 }, perms['milestone'])
+      return select('task', 'milestone_id', [[_("[None]"), "0"]] + milestones.collect {|c| [ c.name, c.id ] }, {:selected => 0 }, perms['milestone'])
     end
   end
 
@@ -237,19 +214,22 @@ module TasksHelper
                                   :after_update_element => "addUserToTask")
   end
 
-  ###
-  # Returns links to filter the current task list by tags
-  ###
-  def tag_links(tags_to_counts_hash)
-    links = []
-    
-    tags_to_counts_hash.each do |tag, count|
-      name = tag.name
-      links << link_to("#{ name } (#{ count })", params.merge(:tag => name))
+  # Returns an array that show the start of ranges to be used
+  # for a tag cloud
+  def cloud_ranges(counts)
+    # there are going to be 5 ranges defined in css:
+    class_count = 5
+
+    max = counts.max || 0
+    min = counts.min || 0
+    divisor = ((max - min) / class_count) + 1
+
+    res = []
+    class_count.times do |i|
+      res << (i * divisor)
     end
-    
-    links = links.sort.join(", ")
-    return links
+
+    return res
   end
 
   ###
@@ -271,6 +251,16 @@ module TasksHelper
     end
 
     return grouped_options_for_select(options, task.project_id)
+  end
+
+  # Returns the js to watch a task's project selector
+  def task_project_watchers_js
+    js = <<-EOS
+    new Form.Element.EventObserver('task_project_id', function(element, value) {new Ajax.Updater('task_milestone_id', '/tasks/get_milestones', {asynchronous:true, evalScripts:true, onComplete:function(request){hideProgress();}, onLoading:function(request){showProgress();}, parameters:'project_id=' + value, insertion: updateSelect })});
+    new Form.Element.EventObserver('task_project_id', function(element, value) {new Ajax.Updater('task_users', '/tasks/get_owners', {asynchronous:true, evalScripts:true, onComplete:function(request){reset_owners();}, parameters:'project_id=' + value, insertion: updateSelect, onLoading:function(request){ remember_user(); } })});
+    EOS
+    
+    return javascript_tag(js)
   end
 
   ###
@@ -316,6 +306,7 @@ module TasksHelper
     return objects_to_names_and_ids(res)
   end
 
+
   # Returns html to display the due date selector for task
   def due_date_field(task, permissions)
     date_tooltip = _("Enter task due date.<br/>For recurring tasks, try:<br/>every day<br/>every thursday<br/>every last friday<br/>every 14 days<br/>every 3rd monday <em>(of a month)</em>")
@@ -331,7 +322,15 @@ module TasksHelper
       options[:value] = @task.repeat_summary
     end
 
-    return text_field("task", "due_at", options)
+    js = <<-EOS
+    jQuery(function() {
+      jQuery("#due_at").datepicker({ constrainInput: false, 
+                                      dateFormat: '#{ current_user.dateFormat }'
+                                   });
+    });
+    EOS
+
+    return text_field("task", "due_at", options) + javascript_tag(js)
   end
 
   # Returns the notify emails for the given task, one per line
@@ -368,7 +367,7 @@ module TasksHelper
   def task_milestone_tip(task)
     return if task.milestone_id.to_i <= 0
 
-    return task_tooltip([ _("Due Date"), formatted_date_for_current_user(task.milestone.due_date) ])
+    return task_tooltip([ [ _("Milestone Due Date"), formatted_date_for_current_user(task.milestone.due_date) ] ])
   end
 
   # Returns a tooltip showing the users linked to a task
@@ -395,6 +394,85 @@ module TasksHelper
     end
     res += "</table>"
     return escape_once(res)
+  end
+
+  # Returns a hash of permissions for the current task and user
+  def perms
+    if @perms.nil?
+      @perms = {}
+      permissions = ['comment', 'edit', 'reassign', 'prioritize', 'close', 'milestone']
+      permissions.each do |p|
+        if @task.project_id.to_i == 0 || current_user.can?(@task.project, p)
+          @perms[p] = {}
+        else
+          @perms[p] = { :disabled => 'disabled' }
+        end
+      end
+
+    end
+
+    @perms
+  end
+
+  # Renders the last task the current user looked at
+  def render_last_task
+    @task = current_user.company.tasks.find_by_id(session[:last_task_id], 
+                                                  :conditions => [ "project_id IN (#{ current_project_ids })" ])
+    if @task
+      return render_to_string(:action => "edit", :layout => false)
+    end
+  end
+
+  # Returns the open tr tag for the given task in a task list
+  def task_row_tr_tag(task)
+    class_name = cycle("odd", "even") 
+    class_name += " task"
+    class_name += " selected" if task.id == session[:last_task_id] 
+    class_name += " unread" if task.unread?(current_user)
+    class_name += " unassigned" if task.users.count == 0
+
+    return tag(:tr, {
+                 :id => "task_row_#{ task.task_num }", 
+                 :class => class_name, 
+                 :onclick => "showTaskInPage(#{ task.task_num}); return false;"
+               }, true)
+  end
+
+  # Returns the html for a completely self contained unread toggle
+  # for the given task and user
+  def unread_toggle_for_task_and_user(task, user)
+    classname = "task"
+    classname += " unread" if task.unread?(user)
+
+    content_tag(:span, :class => classname, :id => "task_#{ task.task_num }") do
+      content_tag(:span, :class => "unread_icon") do
+        link_to_function("<span>*</span>", "toggleTaskUnread(event, #{ user.id })")
+      end
+    end
+  end
+
+  # Returns a sort hint for sorting the given task. 
+  # Uses unread status and whether a user is a task owner or watcher
+  def default_sort_hint_for_task(task)
+    if task.unread?(current_user)
+      return 10
+    elsif task.linked_users.empty?
+      return 9
+    elsif task.linked_users.include?(current_user)
+      return 8
+    else
+      return 1
+    end
+  end
+
+  # Returns a link that allows the user to toggle whether the
+  # full task history or only comments are shown
+  def toggle_history_view_link
+    only_comments = (session[:only_comments].to_i == 0)
+    str = only_comments ? _("Showing Full History") : _("Showing Only Comments")
+
+    return link_to_remote(str, :loading => "showProgress();", :complete => "hideProgress();",
+                          :url => { :action => 'toggle_history', :id => @task.id })
   end
 
 end

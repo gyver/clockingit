@@ -6,10 +6,15 @@ class CompanyTest < ActiveRecord::TestCase
   should_have_many :preferences
   should_have_many :properties
   should_have_many :property_values, :through => :properties
+  should_have_many :task_filters, :dependent => :destroy
+  should_have_many :statuses, :dependent => :destroy
+  should_have_many :wiki_pages, :dependent => :destroy
+  should_have_many :forums, :dependent => :destroy
 
   def setup
     @company = companies(:cit)
   end
+  subject { @company }
 
   def test_truth
     assert_kind_of Company,  @company
@@ -25,7 +30,7 @@ class CompanyTest < ActiveRecord::TestCase
     company.subdomain = 'cit'
     
     assert !company.valid?
-    assert company.errors.on(:subdomain).any?
+    assert_not_nil company.errors.on(:subdomain)
     
     company.subdomain = 'unique-name'
     assert company.valid?
@@ -79,6 +84,31 @@ class CompanyTest < ActiveRecord::TestCase
     assert_nil @company.preference("p2")
   end
 
+  context "a company with default properties" do
+    setup do
+      @company.create_default_properties
+    end
+
+    should "have severity and priority" do
+      assert_not_nil @company.priority_property
+      assert_not_nil @company.severity_property
+    end
+
+    should "have property values in the top 33% as critical" do
+      values = @company.critical_values.map { |v| v.value }
+      assert_equal [ "Critical", "Urgent", "Blocker", "Critical" ], values
+    end 
+
+    should "have property values in the middle 34% as normal" do
+      values = @company.normal_values.map { |v| v.value }
+      assert_equal [ "High", "Normal", "Major", "Normal" ], values
+    end
+
+    should "have property values in the bottom 33% as low" do
+      values = @company.low_values.map { |v| v.value }
+      assert_equal [ "Low", "Lowest", "Minor", "Trivial" ], values
+    end
+  end
 
   private 
 

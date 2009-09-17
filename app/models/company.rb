@@ -2,22 +2,26 @@
 #
 
 class Company < ActiveRecord::Base
-  has_many      :customers, :dependent => :destroy, :order => "lower(name)"
+  has_many      :customers, :dependent => :destroy, :order => "lower(customers.name)"
   has_many      :users, :dependent => :destroy
-  has_many      :projects, :dependent => :destroy, :order => 'name'
+  has_many      :projects, :dependent => :destroy, :order => "lower(projects.name)"
   has_many      :milestones
   has_many      :tasks
   has_many      :pages, :dependent => :destroy
   has_many      :work_logs
   has_many      :project_files, :dependent => :destroy
   has_many      :shout_channels, :dependent => :destroy
-  has_many      :tags, :dependent => :destroy, :order => 'name'
-  has_many      :properties, :dependent => :destroy
+  has_many      :tags, :dependent => :destroy, :order => 'tags.name'
+  has_many      :properties, :dependent => :destroy, :include => :property_values
   has_many      :property_values, :through => :properties
   has_many      :views, :dependent => :destroy
   has_many      :resources, :dependent => :destroy, :order => "lower(name)"
   has_many      :resource_types, :dependent => :destroy, :order => "lower(name)"
   has_many      :custom_attributes, :dependent => :destroy
+  has_many      :task_filters, :dependent => :destroy
+  has_many      :statuses, :dependent => :destroy, :order => "id asc"
+  has_many      :wiki_pages, :dependent => :destroy
+  has_many      :forums, :dependent => :destroy
 
   has_many      :preferences, :as => :preferencable
   include PreferenceMethods
@@ -31,6 +35,7 @@ class Company < ActiveRecord::Base
   validates_uniqueness_of       :subdomain
 
   after_create :create_default_properties
+  after_create :create_default_statuses
 
   # Find the Internal client of this company.
   # A small kludge is needed,as it was previously called Internal, now it has the same
@@ -62,6 +67,11 @@ class Company < ActiveRecord::Base
 
     self.properties.reload
     return new_props
+  end
+
+  # Creates the default statuses for this company
+  def create_default_statuses
+    Status.create_default_statuses(self)
   end
 
   ###
@@ -151,5 +161,34 @@ class Company < ActiveRecord::Base
 		url = "http://"
 	end
 	url += subdomain + "." + $CONFIG[:domain]
+  end
+
+  # Returns a list of property values which should be considered
+  # as marking tasks as critical priority
+  def critical_values
+    @critical_values ||= sort_properties.inject([]) do |res, prop|
+      range = (prop.property_values.count / 3).to_i
+      res += prop.property_values[0, range]
+    end
+  end
+
+  # Returns a list of property values which should be considered
+  # as marking tasks as normal priority
+  def normal_values
+    @normal_values ||= sort_properties.inject([]) do |res, prop|
+      res += prop.property_values.select do |pv|
+        !critical_values.index(pv) and !low_values.index(pv)
+      end
+    end
+  end
+
+  # Returns a list of property values which should be considered
+  # as marking tasks as low priority
+  def low_values
+    @low_values ||= sort_properties.inject([]) do |res, prop|
+      length = prop.property_values.count
+      range = length - (length / 3).to_i
+      res += prop.property_values[range, length]
+    end
   end
 end

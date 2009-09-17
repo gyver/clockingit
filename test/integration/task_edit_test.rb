@@ -24,14 +24,14 @@ class TaskEditTest < ActionController::IntegrationTest
         end
 
         should "be able to edit information" do
-          fill_in "summary", :with => "a new summary"
+          fill_in "task_name", :with => "a new title"
           fill_in "tags", :with => "t1, t2"
-          fill_in "description", :with => "a new description"
+          fill_in "task_description", :with => "a new description"
           
           click_button "save"
           
           @task.reload
-          assert_equal "a new summary", @task.name
+          assert_equal "a new title", @task.name
           assert_equal "a new description", @task.description
           assert_equal "T1 / T2", @task.full_tags_without_links
         end
@@ -104,7 +104,7 @@ class TaskEditTest < ActionController::IntegrationTest
 
           fill_in "work_log_started_at", :with => date
           fill_in "work_log_duration", :with => "5m"
-          fill_in "work_log_body", :with => "some work log notes"
+          fill_in "comment", :with => "some work log notes"
           click_button "save"
           
           log = @task.reload.work_logs.detect { |wl| wl.duration == 300 }

@@ -40,7 +40,7 @@ puts
 domain = "\n"
 while domain == "\n" || domain.split('.').size < 3
   puts
-  print "Enter domain ClockingIT will be accessed from (for example projects.mycompany.com): "
+  print "Enter hostname for the ClockingIT service (for example projects.mycompany.com): "
   domain = gets
 end
 
@@ -193,6 +193,10 @@ puts "  store/avatars..."
 Dir.mkdir("store/avatars") rescue nil
 puts "  store/logos..."
 Dir.mkdir("store/logos") rescue nil
+puts "  tmp..."
+Dir.mkdir("tmp") rescue nil
+puts "  tmp/cache..."
+Dir.mkdir("tmp/cache") rescue nil
 
 puts
 print "Initialize database schema [n]: "
@@ -295,7 +299,7 @@ puts
 puts "Please start the required services by entering the following in a console:"
 puts "  ./script/ferret_server -e production start"
 puts "  nohup ./script/push_server &"
-puts "  ./script/server production"
+puts "Make sure passenger and apache httpd are properly set up and a virtual host defined."
 puts
 puts "Access your installation from http://#{subdomain}.#{domain}:3000"
 

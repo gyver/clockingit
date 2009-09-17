@@ -19,11 +19,17 @@ Customer.blueprint do
   name { company.name }
 end
 
+OrganizationalUnit.blueprint do
+  customer
+  name
+end
+
 User.blueprint do
   company
   customer
   name
   password 
+  email
   time_zone "Australia/Sydney"
   date_format { "%d/%m/%Y" }
   time_format { "%H:%M" }
@@ -58,4 +64,26 @@ Resource.blueprint do
   company
   customer
   resource_type
+end
+
+TaskFilter.blueprint do
+  name
+  user
+  company { user.company }
+end
+
+Tag.blueprint do
+  company
+  name
+end
+
+WorkLog.blueprint do
+  company
+  started_at { Time.now }
+end
+
+Sheet.blueprint do
+  task
+  project
+  user
 end

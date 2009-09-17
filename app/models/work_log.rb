@@ -7,8 +7,6 @@ class WorkLog < ActiveRecord::Base
            :validate => false)
   include CustomAttributeMethods
 
-  acts_as_ferret({ :fields => ['body', 'company_id', 'project_id'], :remote => true })
-
   belongs_to :user
   belongs_to :company
   belongs_to :project
@@ -20,6 +18,10 @@ class WorkLog < ActiveRecord::Base
   has_one    :event_log, :as => :target, :dependent => :destroy
   has_many    :work_log_notifications, :dependent => :destroy
   has_many    :users, :through => :work_log_notifications
+
+  named_scope :comments, :conditions => [ "work_logs.comment = 1 or work_logs.log_type = 6" ]
+
+  validates_presence_of :started_at
 
   after_update { |r|
     r.ical_entry.destroy if r.ical_entry
@@ -79,7 +81,7 @@ class WorkLog < ActiveRecord::Base
     worklog.customer = task.project.customer
     worklog.project = task.project
     worklog.task = task
-    worklog.started_at = Time.now.utc
+    worklog.started_at = user.tz.utc_to_local(Time.now.utc)
     worklog.duration = 0
     worklog.log_type = EventLog::TASK_CREATED
 
@@ -104,6 +106,14 @@ class WorkLog < ActiveRecord::Base
   # Returns the name of the associated customer
   def customer_name
     customer.name if customer
+  end
+
+  alias :validate_custom_attributes :validate
+
+  def validate
+    if log_type == EventLog::TASK_WORK_ADDED
+      validate_custom_attributes
+    end 
   end
 
 end

@@ -46,8 +46,7 @@ class WorklogReport
   # Creates a report for the given tasks and params
   ###
   def initialize(controller, params)
-    task_filter = TaskFilter.new(controller, controller.session)
-    tasks = task_filter.tasks
+    tasks = controller.send(:current_task_filter).tasks(nil, false)
 
     @tz = controller.tz
     @type = params[:type].to_i
@@ -550,6 +549,8 @@ class WorklogReport
   def create_csv
     csv_string = ""
     if @column_headers
+      # N.B FasterCSV has been renamed CSV in 1.9. See environment.rb
+      # for where we redefine it so the next line still works...
       csv_string = FasterCSV.generate( :col_sep => "," ) do |csv|
 
         header = [nil]

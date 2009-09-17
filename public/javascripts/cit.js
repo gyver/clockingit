@@ -7,12 +7,6 @@ var show_tooltips = 1;
 var fetchTimeout = null;
 var fetchElement = null;
 
-function Hover(prefix, element) {
-}
-
-function ClearHover() {
-}
-
 
 // -------------------------
 // show progress spinner
@@ -42,80 +36,6 @@ jQuery("#loading").bind("ajaxSend", function(){
 
 // -------------------------
 
-
-function tip(myEvent,tip){
-  var scrollposY=0;
-  if (window.pageYOffset){
-    scrollposY = window.pageYOffset;
-  }
-  else if (document.documentElement && document.documentElement.scrollTop){
-    scrollposY = document.documentElement.scrollTop;
-  }
-  else if (document.getElementById("body").scrollTop){
-    scrollposY = document.getElementById("body").scrollTop;
-  }
-
-
-  var el = Event.element(myEvent);
-  var taskId = null;
-  if( el.toString().include("tasks/edit/") ) {
-    var elements = el.toString().split("/");
-    taskId = elements[elements.size()-1];
-  }
-
-  if(taskId != null) {
-    var comment = comments.get(taskId);
-    if( comment != null && comment != "" ) {
-      var elements = comment.split("<br/>");
-      var author = elements.shift();
-
-      tip = tip.replace("</table>", "<tr><th>"+ author + "</th><td class=\"tip_description\">" + elements.join("<br/>") + "</td></tr></table>");
-    }
-  }
-
-  document.getElementById("message").innerHTML= tip;
-
-  var height = $("message").offsetHeight;
-  var width = $("message").offsetWidth;
-  var winwidth = (typeof(window.innerWidth) != 'undefined') ? window.innerWidth + self.pageXOffset - 20 : document.documentElement.clientWidth + document.documentElement.scrollLeft;
-  var winBottom = (typeof(window.innerHeight) != 'undefined') ? window.innerHeight + self.pageYOffset - 20 : document.documentElement.clientHeight + document.documentElement.scrollTop;
-
-  var top = scrollposY + myEvent.clientY + 15;
-
-  if((top + height) > winBottom ) {
-    top = top - height - 25;
-  }
-
-  document.getElementById("tip").style.top = top + "px";
-
-  var left = myEvent.clientX - 25;
-  if( left < 0 ) {
-    left = 0;
-  }
-
-  if( (left + width) > winwidth ) {
-    left = winwidth - width - 5;
-  }
-
-  document.getElementById("tip").style.left = left +"px";
-  document.getElementById("tip").style.zIndex=99;
-  document.getElementById("tip").style.visibility="visible";
-
-  if( el.toString().include("tasks/edit/") && comments.get( taskId ) == null && fetchTimeout == null ) {
-    fetchElement = el;
-    fetchTimeout = setTimeout('fetchComment(fetchElement)', 1000);
-  }
-}
-
-function hide(e){
-  document.getElementById("tip").style.visibility="hidden";
-  if(fetchTimeout != null) {
-    clearTimeout(fetchTimeout);
-    fetchTimeout = null;
-    fetchElement = null;
-  }
-}
-
 function fetchComment(e) {
   var elements = e.toString().split("/");
   var taskId = elements[elements.size()-1];
@@ -131,25 +51,6 @@ function updateComment(taskId) {
       Element.insert("task_tooltip", { bottom: "<tr><th>"+ author + "</th><td class=\"tip_description\">" + elements.join("<br/>") + "</td></tr>"  } );
     }
   }
-}
-
-function makeTooltips(show) {
-  $$('.tooltip').each( function(el) {
-      if( show == 1 ) {
-        var tooltip = el.title.replace(/&quot;/, "\"").replace(/&gt;/,"<").replace(/&lt;/,">");
-        Event.observe(el, "mousemove", function(e) { tip(e, tooltip ); });
-        Event.observe(el, "mouseout", function(e) { hide(e); });
-      }
-      el.title = '';
-      Element.removeClassName(el, 'tooltip');
-    } );
-
-  Event.observe(document, "mousedown", function(e) {hide(e);} );
-  show_tooltips = show;
-}
-
-function updateTooltips() {
-  makeTooltips(show_tooltips);
 }
 
 function init_shout() {
@@ -184,42 +85,17 @@ function inline_image(el) {
   el.style.visibility = 'visible';
 }
 
-function HideAjax() {
-  jQuery('div.ajax').hide();
-}
-
-function HideMenus() {
-  jQuery('div.amenu').hide();
-}
-
-function ShowMenus() {
-  jQuery('div.amenu').show();
-}
-
 function UpdateDnD() {
-  //Sortable.destroy('tasks_sortable');
-  //Sortable.destroy('components_sortable');
-  //Sortable.create("components_sortable", {dropOnEmpty:true, handle:'handle_comp', onUpdate:function(){new Ajax.Request('/components/ajax_order_comp', {asynchronous:true, evalScripts:true, onComplete:function(request){Element.hide('loading');}, onLoading:function(request){Element.show('loading');}, parameters:Sortable.serialize("components_sortable")})}, only:'component', tree:true});
-  //Sortable.create('tasks_sortable', {dropOnEmpty:true, handle:'handle', onUpdate:function(){new Ajax.Request('/components/ajax_order', {asynchronous:true, evalScripts:true, onComplete:function(request){Element.hide('loading');}, onLoading:function(request){Element.show('loading');}, parameters:Sortable.serialize("tasks_sortable")})}, only:'task', tree:true});
   updateTooltips();
 }
 
-function EnableDND() {
-  jQuery('#enable_dnd').hide();
-  HideMenus();
-  Sortable.create("components_sortable", {dropOnEmpty:true, handle:'handle_comp', onUpdate:function(){new Ajax.Request('/components/ajax_order_comp', {asynchronous:true, evalScripts:true, onComplete:function(request){Element.hide('loading');}, onLoading:function(request){jQuery('#loading').show();}, parameters:Sortable.serialize("components_sortable")});}, only:'component', tree:true});
-  Sortable.create("tasks_sortable", {dropOnEmpty:true, handle:'handle', onUpdate:function(){new Ajax.Request('/components/ajax_order', {asynchronous:true, evalScripts:true, onComplete:function(request){Element.hide('loading');}, onLoading:function(request){jQuery('#loading').show();}, parameters:Sortable.serialize("tasks_sortable")});}, only:'task', tree:true});
-  jQuery('img.handle').show();
-  jQuery('img.handle_comp').show();
-  jQuery('#disable_dnd').show();
-}
-
-function DisableDND() {
-  jQuery('#disable_dnd').hide();
-  ShowMenus();
-  jQuery('img.handle').hide();
-  jQuery('img.handle_comp').hide();
-  jQuery('#enable_dnd').show();
+/*
+ Tooltips are setup on page load, but sometimes the page is updated
+ using ajax, and the tooltips need to be setup again, so this method
+ sets up tooltips in page.
+*/
+function updateTooltips() {
+    jQuery('.tooltip').tooltip({showURL: false });    
 }
 
 function do_update(user, url) {
@@ -228,17 +104,11 @@ function do_update(user, url) {
   }
 }
 
+// used by Juggernaut
 function do_execute(user, code) {
   if( user != userId ) {
     eval(code);
   }
-}
-
-function enableControl(id, enabled) {
-  if (typeof(enabled) == "undefined") enabled = true;
-  var control = $(id);
-  if (!control) return;
-  control.disabled = !enabled;
 }
 
 function json_decode(txt) {
@@ -248,7 +118,6 @@ function json_decode(txt) {
 }
 
 function updateSelect(sel, response) {
-
    response.evalScripts();
 
    var lines = response.split('\n');
@@ -259,24 +128,6 @@ function updateSelect(sel, response) {
    for( var i=0; i<opts.length; i++ ) {
      sel.options[i] = new Option(opts[i].text,opts[i].value,null,false);
    }
-}
-
-function fixShortLinks() {
-  $$('.task-name a').each( function(e) {
-      e.target = '_blank';
-    });
-
-  $$('a.stop-work-link').each(function(e) {
-      if( e.href != '#' ) {
-        Event.observe(e, "click", function(e) {
-              jQuery.get('/tasks/stop_work_shortlist');
-            return false;
-          });
-        e.href = '#';
-      }
-
-    });
-
 }
 
 function toggleChatPopupEvent(e) {
@@ -302,7 +153,7 @@ function toggleChatPopup(el) {
     jQuery("#" + el.up().id + " .presence-shadow").show();
     jQuery("#" + el.up().id + " input").focus();
 
-      jQuery.get('/shout/chat_show/' + el.up().id);
+	jQuery.get('/shout/chat_show/' + el.up().id);
   }
 }
 
@@ -328,40 +179,53 @@ function rebuildSelect(select, data) {
    }
 }
 
-function clearOtherDefaults(sender) {
-    var list = $(sender).up("ul").select(".default");
+jQuery(document).ready(function() {
+    fixNestedCheckboxes();
 
-    list.each(function(e) {
-	if (e != sender) {
-	    e.checked = false;
+    jQuery("#task_list").resizable({
+	resize: function(event, ui) {
+	    ui.element.css("width", "");
 	}
     });
-}
-
-jQuery(document).ready(function() {
-    // move the tags block to the right[#left_menu] menu
-    jQuery('#tags').hide();
-    var tagsHTML = jQuery('#tags').html();
-    jQuery('#tag-block').html(tagsHTML);
-
-    fixNestedCheckboxes();
-    updateTooltips();
 });
+
+/*
+  Loads the task information for the task taskNum and displays 
+it in the current page.
+*/
+function showTaskInPage(taskNum) {
+    jQuery("#task_list tr.selected").removeClass("selected");
+	jQuery("#task_list #task_row_" + taskNum).addClass("selected");
+
+	jQuery("#task").fadeOut();
+    jQuery.get("/tasks/edit/" + taskNum, {}, function(data) {
+		jQuery("#task").html(data);
+		jQuery("#task").fadeIn('slow');
+    });
+}
 
 /*
  Marks the task sender belongs to as unread.
  Also removes the "unread" class from the task html.
+ If userId is given, that will be sent too.
  */
-function toggleTaskUnread(icon) {
-    var task = jQuery(icon).parents(".task");
+function toggleTaskUnread(event, userId) {
+    var task = jQuery(event.target).parents(".task");
     
     var unread = task.hasClass("unread");
     task.toggleClass("unread");
 
-    var taskId = task.attr("id").replace("task_", "");
+    var taskId = task.attr("id").replace("task_row_", "");
+    var taskId = taskId.replace("task_", "");
     var parameters = { "id" : taskId, "read" : unread };
+    if (userId) {
+	parameters["user_id"] = userId;
+    }
 
     jQuery.post("/tasks/set_unread",  parameters);
+    
+    event.stopPropagation();
+    return false;
 }
 
 /*
@@ -380,22 +244,62 @@ function removeSearchFilter(link) {
     var form = link.parents("form");
     link.parent(".search_filter").remove();
 
-    form[0].onsubmit();
+    submitSearchFilterForm();
 }
 
 function addSearchFilter(textField, selected) {
+    var filter = jQuery("#search_filter");
+    filter.val(jQuery.trim(filter.val()));
+
     selected = jQuery(selected);
     var idField = selected.find(".id");
+    var typeField = selected.find(".type");
     
     if (idField && idField.length > 0) {
 	var filterForm = jQuery("#search_filter_form");
-	var clone = idField.clone();
-	filterForm.append(clone);
-	filterForm[0].onsubmit();
+	filterForm.append(idField.clone());
+	filterForm.append(typeField.clone());
+	submitSearchFilterForm();
     }
     else {
 	// probably selected a heading, just ignore
     }
+}
+
+/* 
+Submits the search filter form. If we are looking at the task list, 
+does that via ajax. Otherwise does a normal html post
+*/
+function submitSearchFilterForm() {
+    var form = jQuery("#search_filter_form")[0];
+    var redirect = jQuery(form.redirect_action).val();
+    if (redirect.indexOf("/tasks/list?") >= 0) {
+	form.onsubmit();
+    }
+    else {
+	form.submit();
+    }
+}
+
+/* 
+Sets up the search filter input field to add a task automatically
+if a number is entered and then the user hits enter
+*/
+function addSearchFilterTaskIdListener(filter) {
+    var filter = jQuery("#search_filter");
+
+    filter.keypress(function(key) {
+	// if key was enter
+	var id = filter.val();
+	if (key.keyCode == 13 && id.match(/^\d+$/)) {
+	    var form = jQuery("#search_filter_form");
+
+	    var new_fields = '<input type="hidden" name="task_filter[qualifiers_attributes][][task_num]" value="' + id  + '" />';
+
+	    form.find(".links").html(new_fields);
+	    submitSearchFilterForm();
+	}
+    });
 }
 
 function addProjectToUser(input, li) {
@@ -793,13 +697,14 @@ function toggleWorkLogApproval(sender, workLogId) {
   initally be sorted according to those values
 */
 function makeSortable(table, defaultSortColumn, defaultSortOrder) {
-    var sort = [];
+    var sort = [ [ 0, 1 ] ];
 
     if (defaultSortColumn && defaultSortColumn != "") {
 	var selector = "th:contains('" + defaultSortColumn + "')";
 	var headers = table.find("th");
 	var column = table.find(selector);
 	var index = headers.index(column);
+	if (index < 0) { index = 0; }
 
 	var dir = (defaultSortOrder == "up" ? 1 : 0);
 	sort = [ [ index, dir ] ];
@@ -808,7 +713,7 @@ function makeSortable(table, defaultSortColumn, defaultSortOrder) {
     table.tablesorter({
 	sortList: sort,
 	widgets: ["zebra"],
-	textExtraction: "complex",
+	textExtraction: tableSortText, //"complex",
 	headers: {
 	    5: { sorter : "digit" }
 	}
@@ -820,12 +725,13 @@ function makeSortable(table, defaultSortColumn, defaultSortOrder) {
 */
 function tableSortText(node) {
     var res = node.innerHTML;
-	    
-    var link = jQuery(node).children("a");
-    if (link.length > 0) {
-	res = link.text();
+    var node = jQuery(node);
+
+    var hint = node.children(".sort_hint");
+    if (hint.length > 0) {
+	res = hint.text();
     }
-    
+
     res = jQuery.trim(res).toLowerCase();
     return res;
 }
@@ -843,8 +749,67 @@ function saveSortParams(event) {
     }
 
     selected = jQuery.trim(selected.text());
-    jQuery.post("/filter/set_single_task_filter", {
+
+    jQuery.post("/task_filters/set_single_task_filter", {
     	name : "sort",
     	value : (selected + "_" + direction)
+    });
+}
+
+// TODOS
+
+/*
+Toggles the todo display or edit fields
+*/
+function toggleTodoEdit(sender) {
+    var todo = jQuery(sender).parents(".todo");
+    var display = todo.find(".display");
+    var edit = todo.find(".edit");
+
+    display.toggle();
+    edit.toggle();
+}
+
+/*
+Adds listeners to handle users pressing enter in the todo
+edit field
+*/
+function addTodoKeyListener(todoId, taskId) {
+    var todo = jQuery("#todos-" + todoId);
+    var input = todo.find(".edit input");
+    
+    input.keypress(function(key) {
+	if (key.keyCode == 13) {
+	    jQuery(".todo-container").load("/todos/update/" + todoId,  {
+		"_method": "PUT",
+		task_id: taskId,
+		"todo[name]": input.val()
+	    });
+
+	    key.stopPropagation();
+	    return false;
+	}
+    });
+}
+
+/*
+Adds listeners to handle users pressing enter in the todo
+create field
+*/
+function addNewTodoKeyListener(taskId) {
+    var todo = jQuery("#new-todos");
+    var input = todo.find(".edit input");
+    
+    input.keypress(function(key) {
+	if (key.keyCode == 13) {
+	    jQuery(".todo-container").load("/todos/create", {
+		"_method": "POST",
+		task_id: taskId,
+		"todo[name]": input.val()
+	    });
+
+	    key.stopPropagation();
+	    return false;
+	}
     });
 }

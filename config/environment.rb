@@ -1,3 +1,5 @@
+# just an error to ensure this doesn't get used while it's crashing the systme
+#1/0
 # Be sure to restart your web server when you modify this file.
 
 # Uncomment below to force Rails into production mode when
@@ -5,7 +7,8 @@
 # ENV['RAILS_ENV'] ||= 'production'
 
 # Specifies gem version of Rails to use when vendor/rails is not present
-RAILS_GEM_VERSION = '2.3.3' unless defined? RAILS_GEM_VERSION
+RAILS_GEM_VERSION = '2.3.4' unless defined? RAILS_GEM_VERSION
+
 
 
 # Bootstrap the Rails environment, frameworks, and default configuration
@@ -13,6 +16,14 @@ require File.join(File.dirname(__FILE__), 'boot')
 
 require File.join(File.dirname(__FILE__), '../lib/localization.rb')
 Localization.load
+
+JAVA = RUBY_PLATFORM =~ /java/
+
+if JAVA
+  require 'rubygems'
+  gem 'activerecord-jdbc-adapter'
+  require 'jdbc_adapter'
+end
 
 Rails::Initializer.run do |config|
   # Settings in config/environments/* take precedence over those specified here.
@@ -54,22 +65,36 @@ Rails::Initializer.run do |config|
   config.logger = Logger.new(config.log_path, 5, 50*1024*1024)
   
 
-#  config.gem 'splattael-activerecord_base_without_table', :lib => 'activerecord_base_without_table', :source => 'http://gems.github.com'
-  config.gem 'activerecord_base_without_table', :lib => 'activerecord_base_without_table', :source => 'http://gems.github.com'
-#  config.gem 'mysql'
+#  config.gem 'activerecord_base_without_table', :lib => 'activerecord_base_without_table', :source => 'http://gems.github.com'
+#  config.gem 'will_paginate', :version => '2.3.8', :lib => 'will_paginate', :source => 'http://gems.github.com'
+  config.gem 'splattael-activerecord_base_without_table', :lib => 'activerecord_base_without_table', :source => 'http://gems.github.com'
   config.gem 'daemons', :version => '1.0.10'
   config.gem 'eventmachine', :version => '0.12.8'
-  config.gem 'json', :version => '1.1.7'
-#  config.gem 'mislav-will_paginate', :version => '2.3.8', :lib => 'will_paginate', :source => 'http://gems.github.com'
-  config.gem 'will_paginate', :version => '2.3.8', :lib => 'will_paginate', :source => 'http://gems.github.com'
-  config.gem 'ferret', :version => '0.11.6'
-#  config.gem 'acts_as_ferret', :version => '0.4.3'  #installed as a plugin since the gem version breaks
-  config.gem 'fastercsv', :version => '1.5.0'
+  config.gem 'mislav-will_paginate', :version => '2.3.11', :lib => 'will_paginate', :source => 'http://gems.github.com'
   config.gem 'icalendar', :version => '1.1.0'
   config.gem 'tzinfo'
   config.gem 'RedCloth', :version => '4.2.2'
-  config.gem 'rmagick', :lib => 'RMagick'
   config.gem 'gchartrb', :version => '0.8', :lib => 'google_chart'
+
+  if !JAVA
+#    config.gem 'mysql'
+    config.gem 'rmagick', :lib => 'RMagick'
+    config.gem 'json', :version => '1.1.9'
+  end
+
+  if RUBY_VERSION < "1.9"
+    # fastercsv has been moved in as default csv engine in 1.9
+    config.gem 'fastercsv', :version => '1.5.0'
+  else
+    require "csv"
+    if !defined?(FasterCSV)
+      class Object
+        FasterCSV = CSV
+        alias_method :FasterCSV, :CSV
+      end
+    end
+  end
+
 
   # Gems used for automated testing
   config.gem "thoughtbot-shoulda", :lib => "shoulda", :source => "http://gems.github.com"
@@ -106,3 +131,4 @@ require File.join(File.dirname(__FILE__), '../lib/misc.rb')
 
 require_dependency 'tzinfo'
 include TZInfo
+

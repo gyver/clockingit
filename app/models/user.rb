@@ -13,6 +13,7 @@ class User < ActiveRecord::Base
   has_many      :completed_projects, :through => :project_permissions, :conditions => ['projects.completed_at IS NOT NULL'], :source => :project, :order => "projects.customer_id, projects.name"
   has_many      :all_projects, :through => :project_permissions, :order => "projects.customer_id, projects.name", :source => :project
   has_many      :project_permissions, :dependent => :destroy
+
   has_many      :pages, :dependent => :nullify
   has_many      :tasks, :through => :task_owners
   has_many      :task_owners, :dependent => :destroy
@@ -42,7 +43,11 @@ class User < ActiveRecord::Base
   has_many      :widgets, :order => "widgets.column, widgets.position", :dependent => :destroy
 
   has_many      :chats, :conditions => ["active = 0 OR active = 1"], :dependent => :destroy
+  has_many      :chat_messages, :through => :chats
   has_many      :chat_requests, :foreign_key => 'target_id', :class_name => 'Chat', :dependent => :destroy
+
+  has_many      :task_filters, :dependent => :destroy
+  has_many      :sheets, :dependent => :destroy
   
   validates_length_of           :name,  :maximum=>200, :allow_nil => true
   validates_presence_of         :name
@@ -242,7 +247,42 @@ class User < ActiveRecord::Base
 
   # Returns true if this user is allowed to view the given task.
   def can_view_task?(task)
-    projects.include?(task.project)
+    projects.include?(task.project) || task.linked_users.include?(self)
+  end
+
+  # Returns a fragment of sql to restrict tasks to only the ones this 
+  # user can see
+  def user_tasks_sql
+    res = []
+    if self.projects.any?
+      res << "tasks.project_id in (#{ all_project_ids.join(",") })"
+    end
+
+    res << "task_owners.user_id = #{ self.id }"
+    res << "notifications.user_id = #{ self.id }"
+    
+    res = res.join(" or ")
+    return "(#{ res })"
+  end
+  
+  # Returns an array of all project ids that this user has
+  # access to. Even completed projects will be included.
+  def all_project_ids
+    @all_project_ids ||= all_projects.map { |p| p.id }
+  end
+
+  # Returns an array of all customers this user has access to 
+  # (through projects). 
+  # If options is passed, those options will be passed to the find.
+  def customers(options = {})
+    company.customers.all(search_options_through_projects("customers", options))
+  end
+
+ # Returns an array of all milestone this user has access to 
+  # (through projects). 
+  # If options is passed, those options will be passed to the find.
+  def milestones(options = {})
+    company.milestones.all(search_options_through_projects("milestones", options))
   end
 
   def currently_online
@@ -317,6 +357,36 @@ class User < ActiveRecord::Base
 
     str.join(" ")
   end
-  
+
+  # Returns an array of all task filters this user can see
+  def visible_task_filters
+    if @visible_task_filters.nil?
+      @visible_task_filters = (task_filters.visible + company.task_filters.shared.visible).uniq
+      @visible_task_filters = @visible_task_filters.sort_by { |tf| tf.name.downcase.strip }
+    end
+
+    return @visible_task_filters
+  end
+
+  private
+
+  # Sets up search options to use in a find for things linked to 
+  # through projects.
+  # See methods customers and milestones.
+  def search_options_through_projects(lookup, options = {})
+    conditions = []
+    conditions << User.send(:sanitize_sql_for_conditions, options[:conditions])
+    conditions << User.send(:sanitize_sql_for_conditions, [ "projects.id in (?)", all_project_ids ])
+    conditions = conditions.compact.map { |c| "(#{ c })" }
+    options[:conditions] = conditions.join(" and ")
+
+    options[:include] ||= []
+    options[:include] << (lookup == "milestones" ? :project : :projects)
+
+    options = options.merge(:order => "lower(#{ lookup }.name)")    
+
+    return options
+  end
+
 
 end

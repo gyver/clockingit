@@ -1,4 +1,9 @@
-require "fastercsv"
+if RUBY_VERSION < "1.9" 
+  require "fastercsv" 
+else
+  require "csv"
+end
+
 # Massage the WorkLogs in different ways, saving reports for later access
 # as well as CSV downloading.
 #
@@ -7,7 +12,7 @@ class ReportsController < ApplicationController
     sql_filter = ""
     date_filter = ""
 
-    @tags = Tag.top_counts({ :company_id => current_user.company_id, :project_ids => current_project_ids})
+    @tags = Tag.top_counts(current_user.company)
     @users = User.find(:all, :order => 'name', :conditions => ['users.company_id = ?', current_user.company_id], :joins => "INNER JOIN project_permissions ON project_permissions.user_id = users.id")
     
     if options = params[:report]

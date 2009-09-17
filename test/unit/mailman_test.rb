@@ -10,11 +10,13 @@ class MailmanTest < ActiveSupport::TestCase
 
     @user = @company.users.first
     @task.users << @user
+    @task.watchers << @company.users[1]
     @task.save!
 
     @tmail = TMail::Mail.parse(test_mail)
 
-    WorkLog.delete_all
+    WorkLog.delete_all 
+    ActionMailer::Base.deliveries.clear
   end
 
   def test_receive_sets_basic_email_properties
@@ -54,6 +56,21 @@ class MailmanTest < ActiveSupport::TestCase
     assert_equal "Comment", log.body
   end
 
+  def test_body_gets_html_escaped
+    assert_equal 0, WorkLog.count
+
+    mail = TMail::Mail.new
+    mail.to = @tmail.to
+    mail.from = @tmail.from
+    mail.body = "<b>test</b>"
+    email = Mailman.receive(mail.to_s)
+
+    log = WorkLog.first
+    assert_not_nil log
+
+    assert_equal "&lt;b&gt;test&lt;/b&gt;", log.body
+  end
+
   def test_body_with_no_trim_works
     assert_equal 0, WorkLog.count
 
@@ -66,6 +83,21 @@ class MailmanTest < ActiveSupport::TestCase
     log = WorkLog.first
     assert_not_nil log
     assert_equal "AAAA", log.body
+  end
+
+  def test_clean_body_removes_comment_junk
+    str = "a comment
+< old comment...
+
+  <
+On 15/09/2009, at 12:39 PM, support@ish.com.au wrote:
+>
+>
+
+o------ please reply above this line ------o
+"
+
+    assert_equal "a comment\n< old comment...", Mailman.clean_body(str)
   end
 
   def test_attachments_get_added_to_tasks
@@ -112,6 +144,24 @@ class MailmanTest < ActiveSupport::TestCase
       assert_not_nil task.work_logs.first.body.index("Email from: from@random")
     end
 
+    should "deliver changed emails to users, watcher and email watchers" do
+      assert_emails 0
+
+      @task.notify_emails = "test1@example.com,test2@example.com"
+      @task.save!
+
+      @task.task_owners.each { |n| n.update_attribute(:notified_last_change, true) }
+      @task.notifications.each { |n| n.update_attribute(:notified_last_change, true) }
+
+      Mailman.receive(@tmail.to_s)
+      emails_to_send = @task.users.count + @task.watchers.count
+      emails_to_send += @task.notify_emails.split(",").length
+      if @task.users.include?(@user) or @task.watchers.include?(@user)
+        emails_to_send -= 1 # because sender should be excluded
+      end
+
+      assert_emails emails_to_send
+    end
   end
 
   context "a single company install" do

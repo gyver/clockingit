@@ -483,12 +483,6 @@ END_OF_HTML
   def selected_project
     if @task and @task.project_id > 0
       selected_project = @task.project_id
-      last_project_id = TaskFilter.filter_ids(session, :last_project_id).first
-      project_id = TaskFilter.filter_ids(session, :filter_project).first
-    elsif last_project_id.to_i > 0 && Project.exists?(last_project_id)
-      selected_project = last_project_id
-    elsif project_id.to_i > 0 && Project.exists?(project_id)
-      selected_project = project_id
     else
       selected_project = current_user.projects.find(:first, :order => 'name').id
     end
@@ -535,13 +529,13 @@ END_OF_HTML
     on_change = (attribute.new_record? ? "nestedCheckboxChanged(this)" : nil)
     class_name = (attribute.new_record? ? "nested_checkbox" : nil)
 
-    if opts[:onChange] and on_change
-      on_change += "; #{ opts[:onChange] }"
+    if opts[:onchange] and on_change
+      on_change += "; #{ opts[:onchange] }"
     end
 
     opts[:class] = "#{ opts[:class] }  #{ class_name }"
 
-    options = opts.merge({ :onChange => on_change, :index => attribute.id })
+    options = opts.merge({ :onchange => on_change, :index => attribute.id })
     return form.check_box(name, options)
   end
 

@@ -1,28 +1,53 @@
-<%- task = task_row_v2 %>
-<%- customer = (task.customers.first || task.project.customer) %>
+<% task = task_row_v2 -%>
+<% customer = (task.customers.first || task.project.customer) -%>
 
-<tr class="<%= cycle("odd", "even") %>" onclick="document.location='/tasks/edit/<%= task.task_num %>'">
+<%= task_row_tr_tag(task) %>
+  <td class="unread_icon">
+    <span class="sort_hint">
+      <%= default_sort_hint_for_task(task) -%>
+    </span>
+
+    <%- # only users assigned to or watching a task can mark unread %>
+    <% if (task.users + task.watchers).include?(current_user) -%>
+      <a href="#" onclick="toggleTaskUnread(event);"><span>*</span></a>
+    <% end -%>
+  </td>
+
+  <td><%= task.task_num %></td>
+
   <td>
     <%= task_icon(task) %>
   </td>
-  <td class="tooltip" title="<%= task_info_tip(task) %>">
-    <%= link_to(task.name, "/tasks/edit/#{ task.task_num }") %>
+
+  <td>
+    <%=h task.name %>
+    <%- # this next link is useful for tests but is hidden from users %>
+    <%= link_to(task.name, "/tasks/edit/#{ task.task_num }", 
+	:style => "display: none",
+	:onclick => "showTaskInPage(#{ task.task_num }); return false;") %>
   </td>
+
   <td class="tooltip" title="<%= task_customer_tip(customer) %>">
     <%=h customer.name %>
   </td>
+
   <td class="tooltip" title="<%= task_milestone_tip(task) %>">
     <% str = [ task.project.name ] -%>
     <% str << task.milestone.name if task.milestone_id.to_i > 0 %>
     <%=h "#{ str.join("/") }" %>
   </td>
-  <td>
-    <%=h formatted_date_for_current_user(task.due_date) %>
+
+  <td class="tooltip" title="<%= task_tooltip([ [ "Due Date", formatted_date_for_current_user(task.due_date) ] ]) %>">
+    <span class="sort_hint"><%= task.due_date %></span>
+    <%= "#{ due_in_words(task) }".gsub("\[", "").gsub("\]", "") %>
   </td>
+
   <td>
-    <%= (task.minutes_left / 60.0).round(1) %>
+    <%= (task.minutes_left / 60.0).round(1) if task.minutes_left.to_i > 0 %>
   </td>
+
   <td class="tooltip" title="<%= task_users_tip(task) %>">
     <%=h task.users.map{ |u| u.name }.join(", ") %>
   </td>
+
 </tr>
